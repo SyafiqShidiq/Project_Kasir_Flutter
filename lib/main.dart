@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+import 'supabase_config.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    publishableKey: SupabaseConfig.publishableKey,
+  );
+
   runApp(const ProviderScope(child: SmartCashierApp()));
 }
 
 enum AppRole { customer, cashier }
+
+final supabaseProvider = Provider<SupabaseClient>(
+  (ref) => Supabase.instance.client,
+);
 
 final authProvider = NotifierProvider<AuthController, AppRole?>(
   AuthController.new,
@@ -91,8 +105,13 @@ extension AppRoleRoutes on AppRole {
   bool canAccess(String path) {
     switch (this) {
       case AppRole.customer:
-        return const {'/', '/cart', '/checkout', '/payment', '/tracking'}
-            .contains(path);
+        return const {
+          '/',
+          '/cart',
+          '/checkout',
+          '/payment',
+          '/tracking',
+        }.contains(path);
       case AppRole.cashier:
         return const {'/cashier', '/order-detail'}.contains(path);
     }
