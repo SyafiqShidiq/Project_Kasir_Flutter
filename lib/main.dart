@@ -6,45 +6,111 @@ void main() {
   runApp(const ProviderScope(child: SmartCashierApp()));
 }
 
-final _router = GoRouter(
-  initialLocation: '/login',
-  routes: [
-    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-    GoRoute(path: '/', builder: (context, state) => const CustomerHomeScreen()),
-    GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
-    GoRoute(
-      path: '/checkout',
-      builder: (context, state) => const CheckoutScreen(),
-    ),
-    GoRoute(
-      path: '/payment',
-      builder: (context, state) => const QrPaymentScreen(),
-    ),
-    GoRoute(
-      path: '/tracking',
-      builder: (context, state) => const OrderTrackingScreen(),
-    ),
-    GoRoute(
-      path: '/cashier',
-      builder: (context, state) => const CashierDashboardScreen(),
-    ),
-    GoRoute(
-      path: '/order-detail',
-      builder: (context, state) => const OrderDetailScreen(),
-    ),
-  ],
+enum AppRole { customer, cashier }
+
+final authProvider = NotifierProvider<AuthController, AppRole?>(
+  AuthController.new,
 );
 
-class SmartCashierApp extends StatelessWidget {
+final routerProvider = Provider<GoRouter>((ref) {
+  final role = ref.watch(authProvider);
+
+  return GoRouter(
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final location = state.uri.path;
+
+      if (role == null) {
+        return location == '/login' ? null : '/login';
+      }
+
+      if (location == '/login') {
+        return role.homePath;
+      }
+
+      if (!role.canAccess(location)) {
+        return role.homePath;
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const CustomerHomeScreen(),
+      ),
+      GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/payment',
+        builder: (context, state) => const QrPaymentScreen(),
+      ),
+      GoRoute(
+        path: '/tracking',
+        builder: (context, state) => const OrderTrackingScreen(),
+      ),
+      GoRoute(
+        path: '/cashier',
+        builder: (context, state) => const CashierDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/order-detail',
+        builder: (context, state) => const OrderDetailScreen(),
+      ),
+    ],
+  );
+});
+
+class AuthController extends Notifier<AppRole?> {
+  @override
+  AppRole? build() => null;
+
+  void signIn(AppRole role) {
+    state = role;
+  }
+
+  void signOut() {
+    state = null;
+  }
+}
+
+extension AppRoleRoutes on AppRole {
+  String get homePath {
+    switch (this) {
+      case AppRole.customer:
+        return '/';
+      case AppRole.cashier:
+        return '/cashier';
+    }
+  }
+
+  bool canAccess(String path) {
+    switch (this) {
+      case AppRole.customer:
+        return const {'/', '/cart', '/checkout', '/payment', '/tracking'}
+            .contains(path);
+      case AppRole.cashier:
+        return const {'/cashier', '/order-detail'}.contains(path);
+    }
+  }
+}
+
+class SmartCashierApp extends ConsumerWidget {
   const SmartCashierApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
     return MaterialApp.router(
       title: 'SmartCashier',
       debugShowCheckedModeBanner: false,
       theme: SmartCashierTheme.light(),
-      routerConfig: _router,
+      routerConfig: router,
     );
   }
 }
@@ -283,11 +349,11 @@ extension RupiahFormat on int {
   }
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -328,15 +394,21 @@ class LoginScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => context.go('/cashier'),
-              icon: const Icon(Icons.login),
-              label: const Text('Sign in'),
+              onPressed: () {
+                ref.read(authProvider.notifier).signIn(AppRole.cashier);
+                context.go('/cashier');
+              },
+              icon: const Icon(Icons.point_of_sale),
+              label: const Text('Masuk sebagai kasir'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => context.go('/'),
+              onPressed: () {
+                ref.read(authProvider.notifier).signIn(AppRole.customer);
+                context.go('/');
+              },
               icon: const Icon(Icons.restaurant_menu),
-              label: const Text('Open customer menu'),
+              label: const Text('Masuk sebagai user'),
             ),
           ],
         ),
@@ -365,6 +437,13 @@ class CustomerHomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.shopping_cart_outlined),
             ),
           ),
+          IconButton(
+            onPressed: () {
+              ref.read(authProvider.notifier).signOut();
+              context.go('/login');
+            },
+            icon: const Icon(Icons.logout),
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -387,7 +466,7 @@ class CustomerHomeScreen extends ConsumerWidget {
               icon: const Icon(Icons.receipt_long),
               label: Text('${cart.itemCount} items'),
             ),
-      bottomNavigationBar: const SmartNavigationBar(activeIndex: 0),
+      bottomNavigationBar: const CustomerNavigationBar(activeIndex: 0),
     );
   }
 }
@@ -397,14 +476,15 @@ class CashierDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(cartProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            onPressed: () => context.go('/login'),
+            onPressed: () {
+              ref.read(authProvider.notifier).signOut();
+              context.go('/login');
+            },
             icon: const Icon(Icons.logout),
           ),
           const SizedBox(width: 8),
@@ -443,11 +523,11 @@ class CashierDashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: MetricCard(
-                  label: 'Active cart',
-                  value: '${cart.itemCount}',
-                  icon: Icons.shopping_bag_outlined,
+                  label: 'Paid',
+                  value: '31',
+                  icon: Icons.verified_user_outlined,
                 ),
               ),
             ],
@@ -486,13 +566,13 @@ class CashierDashboardScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/'),
+        onPressed: () => context.go('/cashier'),
         backgroundColor: SmartCashierTheme.primary,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('New order'),
+        icon: const Icon(Icons.refresh),
+        label: const Text('Refresh queue'),
       ),
-      bottomNavigationBar: const SmartNavigationBar(activeIndex: 3),
+      bottomNavigationBar: const CashierNavigationBar(),
     );
   }
 }
@@ -694,7 +774,7 @@ class OrderTrackingScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: const SmartNavigationBar(activeIndex: 2),
+      bottomNavigationBar: const CustomerNavigationBar(activeIndex: 2),
     );
   }
 }
@@ -1055,8 +1135,8 @@ class CheckoutBar extends StatelessWidget {
   }
 }
 
-class SmartNavigationBar extends StatelessWidget {
-  const SmartNavigationBar({super.key, required this.activeIndex});
+class CustomerNavigationBar extends StatelessWidget {
+  const CustomerNavigationBar({super.key, required this.activeIndex});
 
   final int activeIndex;
 
@@ -1072,8 +1152,6 @@ class SmartNavigationBar extends StatelessWidget {
             context.go('/cart');
           case 2:
             context.go('/tracking');
-          case 3:
-            context.go('/cashier');
         }
       },
       destinations: const [
@@ -1092,10 +1170,36 @@ class SmartNavigationBar extends StatelessWidget {
           selectedIcon: Icon(Icons.route),
           label: 'Track',
         ),
+      ],
+    );
+  }
+}
+
+class CashierNavigationBar extends StatelessWidget {
+  const CashierNavigationBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: 0,
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            context.go('/cashier');
+          case 1:
+            context.go('/order-detail');
+        }
+      },
+      destinations: const [
         NavigationDestination(
           icon: Icon(Icons.dashboard_outlined),
           selectedIcon: Icon(Icons.dashboard),
-          label: 'Cashier',
+          label: 'Dashboard',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.receipt_long_outlined),
+          selectedIcon: Icon(Icons.receipt_long),
+          label: 'Orders',
         ),
       ],
     );
