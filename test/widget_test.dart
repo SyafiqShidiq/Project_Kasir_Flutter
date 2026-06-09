@@ -27,6 +27,26 @@ void main() {
     expect(find.text('1 items'), findsOneWidget);
   });
 
+  testWidgets('cart screen can add menu items directly', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: SmartCashierApp()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Masuk sebagai user'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.shopping_cart_outlined).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tambah menu ke cart'), findsOneWidget);
+    expect(find.text('Crispy Chicken Bowl'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Tambah Crispy Chicken Bowl'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your order'), findsOneWidget);
+    expect(find.text('Remove'), findsOneWidget);
+    expect(find.text('Checkout'), findsOneWidget);
+  });
+
   testWidgets('customer cannot open cashier routes', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: SmartCashierApp()));
     await tester.pumpAndSettle();

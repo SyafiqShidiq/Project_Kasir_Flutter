@@ -260,9 +260,54 @@ final productsProvider = Provider<List<Product>>(
   ],
 );
 
+final menuFilterProvider = NotifierProvider<MenuFilterController, MenuFilter>(
+  MenuFilterController.new,
+);
+
+final filteredProductsProvider = Provider<List<Product>>((ref) {
+  final products = ref.watch(productsProvider);
+  final filter = ref.watch(menuFilterProvider);
+  final query = filter.query.trim().toLowerCase();
+
+  return products.where((product) {
+    final matchesCategory =
+        filter.category == MenuFilter.allCategory ||
+        product.category == filter.category;
+    final matchesQuery =
+        query.isEmpty ||
+        product.name.toLowerCase().contains(query) ||
+        product.category.toLowerCase().contains(query);
+
+    return matchesCategory && matchesQuery;
+  }).toList();
+});
+
 final cartProvider = NotifierProvider<CartController, CartState>(
   CartController.new,
 );
+
+final paymentMethodProvider =
+    NotifierProvider<PaymentMethodController, PaymentMethod>(
+      PaymentMethodController.new,
+    );
+
+final cashierOrdersProvider =
+    NotifierProvider<CashierOrdersController, List<CashierOrder>>(
+      CashierOrdersController.new,
+    );
+
+class MenuFilterController extends Notifier<MenuFilter> {
+  @override
+  MenuFilter build() => const MenuFilter();
+
+  void search(String query) {
+    state = state.copyWith(query: query);
+  }
+
+  void selectCategory(String category) {
+    state = state.copyWith(category: category);
+  }
+}
 
 class CartController extends Notifier<CartState> {
   @override
@@ -303,8 +348,140 @@ class CartController extends Notifier<CartState> {
     );
   }
 
+  void remove(Product product) {
+    state = state.copyWith(
+      lines: [
+        for (final line in state.lines)
+          if (line.product.id != product.id) line,
+      ],
+    );
+  }
+
   void clear() {
     state = const CartState(lines: []);
+  }
+}
+
+class PaymentMethodController extends Notifier<PaymentMethod> {
+  @override
+  PaymentMethod build() => PaymentMethod.qris;
+
+  void select(PaymentMethod method) {
+    state = method;
+  }
+}
+
+class CashierOrdersController extends Notifier<List<CashierOrder>> {
+  @override
+  List<CashierOrder> build() => const [
+    CashierOrder(
+      id: '#402',
+      customer: 'Dina',
+      status: OrderStatus.preparing,
+      total: 86000,
+      accent: Color(0xFFFFEDB5),
+      items: [
+        OrderItem(name: 'Crispy Chicken Bowl', quantity: 2, subtotal: 56000),
+        OrderItem(name: 'Iced Matcha Latte', quantity: 1, subtotal: 22000),
+      ],
+      note: 'No onion. Extra sauce on the side.',
+    ),
+    CashierOrder(
+      id: '#403',
+      customer: 'Rafi',
+      status: OrderStatus.ready,
+      total: 54000,
+      accent: Color(0xFFD9F1E2),
+      items: [
+        OrderItem(name: 'Beef Teriyaki', quantity: 1, subtotal: 36000),
+        OrderItem(name: 'Berry Soda', quantity: 1, subtotal: 18000),
+      ],
+      note: 'Take away.',
+    ),
+    CashierOrder(
+      id: '#404',
+      customer: 'Maya',
+      status: OrderStatus.paid,
+      total: 118000,
+      accent: Color(0xFFFFD5E5),
+      items: [
+        OrderItem(name: 'Chocolate Waffle', quantity: 2, subtotal: 50000),
+        OrderItem(name: 'French Fries', quantity: 4, subtotal: 68000),
+      ],
+      note: 'Serve drinks later.',
+    ),
+  ];
+
+  CashierOrder get selectedOrder => state.first;
+
+  void markSelectedReady() {
+    final order = selectedOrder;
+    state = [
+      for (final item in state)
+        if (item.id == order.id)
+          item.copyWith(status: OrderStatus.ready)
+        else
+          item,
+    ];
+  }
+}
+
+class MenuFilter {
+  const MenuFilter({this.query = '', this.category = allCategory});
+
+  static const allCategory = 'All';
+
+  final String query;
+  final String category;
+
+  MenuFilter copyWith({String? query, String? category}) {
+    return MenuFilter(
+      query: query ?? this.query,
+      category: category ?? this.category,
+    );
+  }
+}
+
+enum PaymentMethod { qris, cash }
+
+enum OrderStatus { paid, preparing, ready, pickedUp }
+
+extension PaymentMethodText on PaymentMethod {
+  String get title {
+    switch (this) {
+      case PaymentMethod.qris:
+        return 'QRIS';
+      case PaymentMethod.cash:
+        return 'Cash';
+    }
+  }
+}
+
+extension OrderStatusText on OrderStatus {
+  String get label {
+    switch (this) {
+      case OrderStatus.paid:
+        return 'Paid';
+      case OrderStatus.preparing:
+        return 'Preparing';
+      case OrderStatus.ready:
+        return 'Ready';
+      case OrderStatus.pickedUp:
+        return 'Picked up';
+    }
+  }
+
+  int get step {
+    switch (this) {
+      case OrderStatus.paid:
+        return 0;
+      case OrderStatus.preparing:
+        return 1;
+      case OrderStatus.ready:
+        return 2;
+      case OrderStatus.pickedUp:
+        return 3;
+    }
   }
 }
 
@@ -324,6 +501,50 @@ class Product {
   final int price;
   final Color color;
   final IconData icon;
+}
+
+class OrderItem {
+  const OrderItem({
+    required this.name,
+    required this.quantity,
+    required this.subtotal,
+  });
+
+  final String name;
+  final int quantity;
+  final int subtotal;
+}
+
+class CashierOrder {
+  const CashierOrder({
+    required this.id,
+    required this.customer,
+    required this.status,
+    required this.total,
+    required this.accent,
+    required this.items,
+    required this.note,
+  });
+
+  final String id;
+  final String customer;
+  final OrderStatus status;
+  final int total;
+  final Color accent;
+  final List<OrderItem> items;
+  final String note;
+
+  CashierOrder copyWith({OrderStatus? status}) {
+    return CashierOrder(
+      id: id,
+      customer: customer,
+      status: status ?? this.status,
+      total: total,
+      accent: accent,
+      items: items,
+      note: note,
+    );
+  }
 }
 
 class CartLine {
@@ -441,7 +662,7 @@ class CustomerHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(filteredProductsProvider);
     final cart = ref.watch(cartProvider);
 
     return Scaffold(
@@ -473,7 +694,10 @@ class CustomerHomeScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           const CategoryChips(),
           const SizedBox(height: 18),
-          ResponsiveProductGrid(products: products),
+          if (products.isEmpty)
+            const EmptyMenuResult()
+          else
+            ResponsiveProductGrid(products: products),
         ],
       ),
       floatingActionButton: cart.itemCount == 0
@@ -495,6 +719,8 @@ class CashierDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final orders = ref.watch(cashierOrdersProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -559,33 +785,18 @@ class CashierDashboardScreen extends ConsumerWidget {
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
-          const OrderTile(
-            orderId: '#402',
-            customer: 'Dina',
-            status: 'Preparing',
-            total: 'Rp86.000',
-            accent: Color(0xFFFFEDB5),
-          ),
-          const SizedBox(height: 10),
-          const OrderTile(
-            orderId: '#403',
-            customer: 'Rafi',
-            status: 'Ready',
-            total: 'Rp54.000',
-            accent: Color(0xFFD9F1E2),
-          ),
-          const SizedBox(height: 10),
-          const OrderTile(
-            orderId: '#404',
-            customer: 'Maya',
-            status: 'Paid',
-            total: 'Rp118.000',
-            accent: Color(0xFFFFD5E5),
-          ),
+          for (final order in orders) ...[
+            OrderTile(order: order),
+            const SizedBox(height: 10),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/cashier'),
+        onPressed: () {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Queue refreshed')));
+        },
         backgroundColor: SmartCashierTheme.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.refresh),
@@ -610,18 +821,35 @@ class CartScreen extends ConsumerWidget {
           onPressed: () => context.go('/'),
           icon: const Icon(Icons.arrow_back),
         ),
+        actions: [
+          if (cart.itemCount > 0)
+            TextButton(
+              onPressed: () => ref.read(cartProvider.notifier).clear(),
+              child: const Text('Clear'),
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: cart.lines.isEmpty
-          ? const EmptyCart()
+          ? const EmptyCartWithMenu()
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 132),
               children: [
+                Text(
+                  'Your order',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 for (final line in cart.lines) ...[
                   CartLineCard(line: line),
                   const SizedBox(height: 12),
                 ],
                 const SizedBox(height: 8),
                 PriceSummary(cart: cart),
+                const SizedBox(height: 18),
+                const CartMenuPicker(title: 'Add more menu'),
               ],
             ),
       bottomNavigationBar: CheckoutBar(
@@ -640,6 +868,7 @@ class CheckoutScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
+    final selectedPayment = ref.watch(paymentMethodProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -671,14 +900,20 @@ class CheckoutScreen extends ConsumerWidget {
                   icon: Icons.qr_code_2,
                   title: 'QRIS',
                   subtitle: 'Instant scan payment',
-                  selected: true,
+                  selected: selectedPayment == PaymentMethod.qris,
+                  onTap: () => ref
+                      .read(paymentMethodProvider.notifier)
+                      .select(PaymentMethod.qris),
                 ),
                 const Divider(height: 24),
                 PaymentOption(
                   icon: Icons.payments_outlined,
                   title: 'Cash',
                   subtitle: 'Pay at cashier',
-                  selected: false,
+                  selected: selectedPayment == PaymentMethod.cash,
+                  onTap: () => ref
+                      .read(paymentMethodProvider.notifier)
+                      .select(PaymentMethod.cash),
                 ),
               ],
             ),
@@ -689,9 +924,19 @@ class CheckoutScreen extends ConsumerWidget {
       ),
       bottomNavigationBar: CheckoutBar(
         total: cart.total,
-        label: 'Pay now',
+        label: selectedPayment == PaymentMethod.qris
+            ? 'Pay now'
+            : 'Place order',
         enabled: cart.itemCount > 0,
-        onPressed: () => context.go('/payment'),
+        onPressed: () {
+          if (selectedPayment == PaymentMethod.qris) {
+            context.go('/payment');
+            return;
+          }
+
+          ref.read(cartProvider.notifier).clear();
+          context.go('/tracking');
+        },
       ),
     );
   }
@@ -759,11 +1004,13 @@ class QrPaymentScreen extends ConsumerWidget {
   }
 }
 
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends ConsumerWidget {
   const OrderTrackingScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final order = ref.watch(cashierOrdersProvider).first;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Order Tracking'),
@@ -774,20 +1021,25 @@ class OrderTrackingScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          OrderHeaderCard(),
-          SizedBox(height: 12),
-          OrderProgress(currentStep: 2),
-          SizedBox(height: 12),
+        children: [
+          OrderHeaderCard(order: order),
+          const SizedBox(height: 12),
+          OrderProgress(currentStep: order.status.step),
+          const SizedBox(height: 12),
           SectionCard(
             title: 'Pickup details',
             child: Column(
               children: [
-                DetailRow(label: 'Order', value: '#402'),
-                Divider(height: 24),
-                DetailRow(label: 'Counter', value: 'Pickup A'),
-                Divider(height: 24),
-                DetailRow(label: 'Estimated ready', value: '8 minutes'),
+                DetailRow(label: 'Order', value: order.id),
+                const Divider(height: 24),
+                const DetailRow(label: 'Counter', value: 'Pickup A'),
+                const Divider(height: 24),
+                DetailRow(
+                  label: 'Estimated ready',
+                  value: order.status == OrderStatus.ready
+                      ? 'Ready now'
+                      : '8 minutes',
+                ),
               ],
             ),
           ),
@@ -798,14 +1050,17 @@ class OrderTrackingScreen extends StatelessWidget {
   }
 }
 
-class OrderDetailScreen extends StatelessWidget {
+class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final order = ref.watch(cashierOrdersProvider).first;
+    final isReady = order.status == OrderStatus.ready;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order #402'),
+        title: Text('Order ${order.id}'),
         leading: IconButton(
           onPressed: () => context.go('/cashier'),
           icon: const Icon(Icons.arrow_back),
@@ -813,32 +1068,40 @@ class OrderDetailScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          OrderHeaderCard(),
-          SizedBox(height: 12),
+        children: [
+          OrderHeaderCard(order: order),
+          const SizedBox(height: 12),
           SectionCard(
             title: 'Items',
             child: Column(
               children: [
-                DetailRow(label: '2x Crispy Chicken Bowl', value: 'Rp56.000'),
-                Divider(height: 24),
-                DetailRow(label: '1x Iced Matcha Latte', value: 'Rp22.000'),
+                for (var i = 0; i < order.items.length; i++) ...[
+                  DetailRow(
+                    label: '${order.items[i].quantity}x ${order.items[i].name}',
+                    value: order.items[i].subtotal.rupiah,
+                  ),
+                  if (i != order.items.length - 1) const Divider(height: 24),
+                ],
               ],
             ),
           ),
-          SizedBox(height: 12),
-          SectionCard(
-            title: 'Kitchen notes',
-            child: Text('No onion. Extra sauce on the side.'),
-          ),
+          const SizedBox(height: 12),
+          SectionCard(title: 'Kitchen notes', child: Text(order.note)),
         ],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16),
         child: FilledButton.icon(
-          onPressed: null,
-          icon: Icon(Icons.done_all),
-          label: Text('Ready for pickup'),
+          onPressed: isReady
+              ? null
+              : () {
+                  ref.read(cashierOrdersProvider.notifier).markSelectedReady();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${order.id} is ready for pickup')),
+                  );
+                },
+          icon: const Icon(Icons.done_all),
+          label: Text(isReady ? 'Already ready' : 'Ready for pickup'),
         ),
       ),
     );
@@ -951,13 +1214,45 @@ class ProductCard extends ConsumerWidget {
   }
 }
 
-class SearchPanel extends StatelessWidget {
-  const SearchPanel({super.key});
+class EmptyMenuResult extends StatelessWidget {
+  const EmptyMenuResult({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const TextField(
-      decoration: InputDecoration(
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.search_off,
+              size: 44,
+              color: SmartCashierTheme.outline,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Menu not found',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            const Text('Try another keyword or category.'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SearchPanel extends ConsumerWidget {
+  const SearchPanel({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return TextField(
+      onChanged: (value) => ref.read(menuFilterProvider.notifier).search(value),
+      decoration: const InputDecoration(
         hintText: 'Search menu or order code',
         prefixIcon: Icon(Icons.search),
       ),
@@ -965,11 +1260,12 @@ class SearchPanel extends StatelessWidget {
   }
 }
 
-class CategoryChips extends StatelessWidget {
+class CategoryChips extends ConsumerWidget {
   const CategoryChips({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedCategory = ref.watch(menuFilterProvider).category;
     const categories = ['All', 'Meals', 'Drinks', 'Snacks', 'Dessert'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -977,13 +1273,15 @@ class CategoryChips extends StatelessWidget {
         children: [
           for (final category in categories) ...[
             FilterChip(
-              selected: category == 'All',
-              onSelected: (_) {},
+              selected: category == selectedCategory,
+              onSelected: (_) => ref
+                  .read(menuFilterProvider.notifier)
+                  .selectCategory(category),
               label: Text(category),
               selectedColor: SmartCashierTheme.primary,
               checkmarkColor: Colors.white,
               labelStyle: TextStyle(
-                color: category == 'All'
+                color: category == selectedCategory
                     ? Colors.white
                     : SmartCashierTheme.onSurface,
                 fontWeight: FontWeight.w600,
@@ -1037,7 +1335,18 @@ class CartLineCard extends ConsumerWidget {
                 ],
               ),
             ),
-            QuantityStepper(line: line),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                QuantityStepper(line: line),
+                TextButton.icon(
+                  onPressed: () =>
+                      ref.read(cartProvider.notifier).remove(line.product),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Remove'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1143,9 +1452,12 @@ class CheckoutBar extends StatelessWidget {
                 ],
               ),
             ),
-            FilledButton(
-              onPressed: enabled ? onPressed : null,
-              child: Text(label),
+            SizedBox(
+              width: 132,
+              child: FilledButton(
+                onPressed: enabled ? onPressed : null,
+                child: Text(label),
+              ),
             ),
           ],
         ),
@@ -1268,20 +1580,9 @@ class MetricCard extends StatelessWidget {
 }
 
 class OrderTile extends StatelessWidget {
-  const OrderTile({
-    super.key,
-    required this.orderId,
-    required this.customer,
-    required this.status,
-    required this.total,
-    required this.accent,
-  });
+  const OrderTile({super.key, required this.order});
 
-  final String orderId;
-  final String customer;
-  final String status;
-  final String total;
-  final Color accent;
+  final CashierOrder order;
 
   @override
   Widget build(BuildContext context) {
@@ -1289,14 +1590,14 @@ class OrderTile extends StatelessWidget {
       child: ListTile(
         onTap: () => context.go('/order-detail'),
         leading: CircleAvatar(
-          backgroundColor: accent,
+          backgroundColor: order.accent,
           foregroundColor: SmartCashierTheme.primaryDark,
           child: const Icon(Icons.receipt_long),
         ),
-        title: Text('$orderId - $customer'),
-        subtitle: Text(status),
+        title: Text('${order.id} - ${order.customer}'),
+        subtitle: Text(order.status.label),
         trailing: Text(
-          total,
+          order.total.rupiah,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
@@ -1378,48 +1679,60 @@ class PaymentOption extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.selected,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        CircleAvatar(
-          backgroundColor: selected
-              ? SmartCashierTheme.primary
-              : SmartCashierTheme.surfaceVariant,
-          foregroundColor: selected
-              ? Colors.white
-              : SmartCashierTheme.onSurface,
-          child: Icon(icon),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: SmartCashierTheme.onSurfaceVariant,
-                ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: selected
+                  ? SmartCashierTheme.primary
+                  : SmartCashierTheme.surfaceVariant,
+              foregroundColor: selected
+                  ? Colors.white
+                  : SmartCashierTheme.onSurface,
+              child: Icon(icon),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: SmartCashierTheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected
+                  ? SmartCashierTheme.primary
+                  : SmartCashierTheme.outline,
+            ),
+          ],
         ),
-        Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_off,
-          color: selected
-              ? SmartCashierTheme.primary
-              : SmartCashierTheme.outline,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1483,7 +1796,9 @@ class OrderProgress extends StatelessWidget {
 }
 
 class OrderHeaderCard extends StatelessWidget {
-  const OrderHeaderCard({super.key});
+  const OrderHeaderCard({super.key, required this.order});
+
+  final CashierOrder order;
 
   @override
   Widget build(BuildContext context) {
@@ -1504,16 +1819,16 @@ class OrderHeaderCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order #402',
+                    'Order ${order.id}',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Preparing - paid with QRIS',
-                    style: TextStyle(color: Colors.white),
+                  Text(
+                    '${order.status.label} - paid with QRIS',
+                    style: const TextStyle(color: Colors.white),
                   ),
                 ],
               ),
@@ -1576,38 +1891,92 @@ class QrMark extends StatelessWidget {
   }
 }
 
-class EmptyCart extends StatelessWidget {
-  const EmptyCart({super.key});
+class EmptyCartWithMenu extends StatelessWidget {
+  const EmptyCartWithMenu({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SmartCashierLogo(size: 72),
-            const SizedBox(height: 18),
-            Text(
-              'Cart is empty',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 132),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const SmartCashierLogo(size: 72),
+                const SizedBox(height: 18),
+                Text(
+                  'Cart is empty',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Tambahkan menu langsung dari cart.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () => context.go('/'),
+                  icon: const Icon(Icons.restaurant_menu),
+                  label: const Text('Browse menu'),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Add menu items to start a new order.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: () => context.go('/'),
-              icon: const Icon(Icons.restaurant_menu),
-              label: const Text('Browse menu'),
-            ),
-          ],
+          ),
         ),
+        const SizedBox(height: 18),
+        const CartMenuPicker(title: 'Tambah menu ke cart'),
+      ],
+    );
+  }
+}
+
+class CartMenuPicker extends ConsumerWidget {
+  const CartMenuPicker({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final products = ref.watch(productsProvider);
+
+    return SectionCard(
+      title: title,
+      child: Column(
+        children: [
+          for (final product in products) ...[
+            SuggestedProductTile(product: product),
+            if (product != products.last) const Divider(height: 18),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class SuggestedProductTile extends ConsumerWidget {
+  const SuggestedProductTile({super.key, required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: product.color,
+        foregroundColor: SmartCashierTheme.primaryDark,
+        child: Icon(product.icon),
+      ),
+      title: Text(product.name),
+      subtitle: Text('${product.category} - ${product.price.rupiah}'),
+      trailing: IconButton.filled(
+        tooltip: 'Tambah ${product.name}',
+        onPressed: () => ref.read(cartProvider.notifier).add(product),
+        icon: const Icon(Icons.add),
       ),
     );
   }
