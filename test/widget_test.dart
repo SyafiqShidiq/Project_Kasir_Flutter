@@ -9,7 +9,7 @@ class FakeAuthController extends AuthController {
   AppAuthState build() => const AppAuthState.unauthenticated();
 
   @override
-  Future<void> registerCustomer({
+  Future<String> registerCustomer({
     required String fullName,
     required String email,
     required String password,
@@ -19,6 +19,7 @@ class FakeAuthController extends AuthController {
       email: email,
       fullName: fullName,
     );
+    return email;
   }
 
   @override
@@ -63,10 +64,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Budi User');
-    await tester.enterText(
-      find.byType(TextFormField).at(1),
-      'budi@example.com',
-    );
+    await tester.enterText(find.byType(TextFormField).at(1), 'budi');
     await tester.enterText(find.byType(TextFormField).at(2), 'secret123');
     await tester.enterText(find.byType(TextFormField).at(3), 'secret123');
     await tester.drag(find.byType(ListView).last, const Offset(0, -320));
@@ -82,10 +80,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byType(TextFormField).at(0),
-      'user@example.com',
-    );
+    await tester.enterText(find.byType(TextFormField).at(0), 'user');
     await tester.enterText(find.byType(TextFormField).at(1), 'secret123');
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
@@ -102,10 +97,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byType(TextFormField).at(0),
-      'user@example.com',
-    );
+    await tester.enterText(find.byType(TextFormField).at(0), 'user');
     await tester.enterText(find.byType(TextFormField).at(1), 'secret123');
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
@@ -122,10 +114,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byType(TextFormField).at(0),
-      'cashier@store.com',
-    );
+    await tester.enterText(find.byType(TextFormField).at(0), 'cashier');
     await tester.enterText(find.byType(TextFormField).at(1), 'secret123');
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();

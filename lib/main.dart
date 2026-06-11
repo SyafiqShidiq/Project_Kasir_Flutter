@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_config.dart';
@@ -153,23 +155,33 @@ class AuthController extends Notifier<AppAuthState> {
 
   Future<void> signIn({required String email, required String password}) async {
     final response = await _supabase.auth.signInWithPassword(
-      email: email.trim(),
+      email: await resolveAuthEmail(email),
       password: password,
     );
     state = AppAuthState.fromSession(response.session);
   }
 
-  Future<void> registerCustomer({
+  Future<String> registerCustomer({
     required String fullName,
     required String email,
     required String password,
   }) async {
+    final input = email.trim();
+    final resolvedEmail = generateRegisterEmail(input);
     final response = await _supabase.auth.signUp(
-      email: email.trim(),
+      email: resolvedEmail,
       password: password,
-      data: <String, dynamic>{'role': 'customer', 'full_name': fullName.trim()},
+      data: <String, dynamic>{
+        'role': 'customer',
+        'full_name': fullName.trim(),
+        'alias': input,
+      },
     );
+    if (input.isNotEmpty) {
+      await rememberAuthEmail(input, resolvedEmail);
+    }
     state = AppAuthState.fromSession(response.session);
+    return resolvedEmail;
   }
 
   Future<void> signOut() async {
@@ -197,6 +209,83 @@ String? _readUserName(User user) {
 
   final email = user.email;
   return email?.isNotEmpty == true ? email : null;
+}
+
+String normalizeEmailInput(String input) {
+  final trimmed = input.trim().toLowerCase();
+  if (trimmed.isEmpty) {
+    return trimmed;
+  }
+
+  if (trimmed.contains('@')) {
+    return trimmed;
+  }
+
+  return '$trimmed@dummy.local';
+}
+
+String generateRegisterEmail(String input) {
+  final trimmed = input.trim().toLowerCase();
+  if (trimmed.contains('@')) {
+    return trimmed;
+  }
+
+  final alias = _sanitizeEmailAlias(trimmed);
+  final stamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  final nonce = Random.secure().nextInt(1 << 32).toRadixString(36);
+  return '$alias.$stamp$nonce@dummy.local';
+}
+
+Future<String> resolveAuthEmail(String input) async {
+  final trimmed = input.trim().toLowerCase();
+  if (trimmed.contains('@')) {
+    return trimmed;
+  }
+
+  final rememberedEmail = await lookupRememberedAuthEmail(trimmed);
+  if (rememberedEmail != null) {
+    return rememberedEmail;
+  }
+
+  return '$trimmed@dummy.local';
+}
+
+String _sanitizeEmailAlias(String value) {
+  final sanitized = value.replaceAll(RegExp(r'[^a-z0-9]+'), '.');
+  final collapsed = sanitized.replaceAll(RegExp(r'\.+'), '.').trim();
+  final trimmed = collapsed.replaceAll(RegExp(r'^\.+|\.+$'), '');
+  return trimmed.isEmpty ? 'user' : trimmed;
+}
+
+String _authEmailKey(String alias) {
+  return 'auth_email_${_sanitizeEmailAlias(alias)}';
+}
+
+Future<void> rememberAuthEmail(String alias, String email) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_authEmailKey(alias), email);
+}
+
+Future<String?> lookupRememberedAuthEmail(String alias) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString(_authEmailKey(alias));
+}
+
+String? validateLoginAlias(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) {
+    return 'Email atau username wajib diisi';
+  }
+
+  if (text.contains(' ')) {
+    return 'Email atau username tidak boleh mengandung spasi';
+  }
+
+  if (text.endsWith('@')) {
+    return 'Format email belum lengkap';
+  }
+
+  return null;
 }
 
 extension AppRoleRoutes on AppRole {
@@ -807,20 +896,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        labelText: 'Email',
+                        labelText: 'Email / username',
+                        hintText: 'contoh: budi atau budi@example.com',
                         prefixIcon: Icon(Icons.mail_outline),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Email wajib diisi';
-                        }
-
-                        if (!value.contains('@')) {
-                          return 'Email tidak valid';
-                        }
-
-                        return null;
-                      },
+                      validator: validateLoginAlias,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -828,6 +908,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       obscureText: true,
                       decoration: const InputDecoration(
                         labelText: 'Password',
+                        hintText: 'Masukkan password akun',
                         prefixIcon: Icon(Icons.lock_outline),
                       ),
                       validator: (value) {
@@ -904,7 +985,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ref
+      final registeredEmail = await ref
           .read(authProvider.notifier)
           .registerCustomer(
             fullName: _nameController.text,
@@ -918,9 +999,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            authState.isSignedIn
-                ? 'Akun user berhasil dibuat dan langsung masuk'
-                : 'Akun user berhasil dibuat. Cek email untuk verifikasi jika diminta Supabase.',
+            'Akun user berhasil dibuat. Email login: $registeredEmail',
           ),
         ),
       );
@@ -984,6 +1063,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
                     controller: _nameController,
                     decoration: const InputDecoration(
                       labelText: 'Nama lengkap',
+                      hintText: 'contoh: Budi Santoso',
                       prefixIcon: Icon(Icons.badge_outlined),
                     ),
                     validator: (value) {
@@ -999,20 +1079,11 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Email / username',
+                      hintText: 'contoh: budi atau budi@example.com',
                       prefixIcon: Icon(Icons.mail_outline),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email wajib diisi';
-                      }
-
-                      if (!value.contains('@')) {
-                        return 'Email tidak valid';
-                      }
-
-                      return null;
-                    },
+                    validator: validateLoginAlias,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -1020,6 +1091,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
                     obscureText: true,
                     decoration: const InputDecoration(
                       labelText: 'Password',
+                      hintText: 'Minimal 6 karakter',
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
                     validator: (value) {
@@ -1040,6 +1112,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
                     obscureText: true,
                     decoration: const InputDecoration(
                       labelText: 'Konfirmasi password',
+                      hintText: 'Ulangi password yang sama',
                       prefixIcon: Icon(Icons.lock_reset_outlined),
                     ),
                     validator: (value) {
