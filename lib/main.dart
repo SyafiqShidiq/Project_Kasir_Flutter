@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,27 +20,74 @@ Future<void> main() async {
 
 enum AppRole { customer, cashier }
 
+class AppAuthState {
+  const AppAuthState({
+    required this.isSignedIn,
+    this.email,
+    this.fullName,
+    this.role,
+  });
+
+  const AppAuthState.unauthenticated()
+    : isSignedIn = false,
+      email = null,
+      fullName = null,
+      role = null;
+
+  const AppAuthState.signedIn({required this.role, this.email, this.fullName})
+    : isSignedIn = true;
+
+  final bool isSignedIn;
+  final String? email;
+  final String? fullName;
+  final AppRole? role;
+
+  String get displayName => fullName?.trim().isNotEmpty == true
+      ? fullName!.trim()
+      : email ?? 'Pengguna';
+
+  static AppAuthState fromSession(Session? session) {
+    final user = session?.user;
+    if (user == null) {
+      return const AppAuthState.unauthenticated();
+    }
+
+    return AppAuthState.signedIn(
+      role: _roleFromUser(user),
+      email: user.email,
+      fullName: _readUserName(user),
+    );
+  }
+}
+
 final supabaseProvider = Provider<SupabaseClient>(
   (ref) => Supabase.instance.client,
 );
 
-final authProvider = NotifierProvider<AuthController, AppRole?>(
+final authProvider = NotifierProvider<AuthController, AppAuthState>(
   AuthController.new,
 );
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final role = ref.watch(authProvider);
+  final authState = ref.watch(authProvider);
 
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
       final location = state.uri.path;
 
-      if (role == null) {
-        return location == '/login' ? null : '/login';
+      if (!authState.isSignedIn) {
+        return location == '/login' || location == '/register'
+            ? null
+            : '/login';
       }
 
-      if (location == '/login') {
+      final role = authState.role;
+      if (role == null) {
+        return '/login';
+      }
+
+      if (location == '/login' || location == '/register') {
         return role.homePath;
       }
 
@@ -50,6 +99,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterUserScreen(),
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const CustomerHomeScreen(),
@@ -79,17 +132,71 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-class AuthController extends Notifier<AppRole?> {
+class AuthController extends Notifier<AppAuthState> {
+  late final SupabaseClient _supabase;
+  StreamSubscription<AuthState>? _authSubscription;
+
   @override
-  AppRole? build() => null;
-
-  void signIn(AppRole role) {
-    state = role;
+  AppAuthState build() {
+    _supabase = ref.read(supabaseProvider);
+    _authSubscription ??= _supabase.auth.onAuthStateChange.listen(
+      (data) {
+        state = AppAuthState.fromSession(data.session);
+      },
+      onError: (error, stackTrace) {
+        debugPrint('Supabase auth stream error: $error');
+      },
+    );
+    ref.onDispose(() => _authSubscription?.cancel());
+    return AppAuthState.fromSession(_supabase.auth.currentSession);
   }
 
-  void signOut() {
-    state = null;
+  Future<void> signIn({required String email, required String password}) async {
+    final response = await _supabase.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+    state = AppAuthState.fromSession(response.session);
   }
+
+  Future<void> registerCustomer({
+    required String fullName,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _supabase.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: <String, dynamic>{'role': 'customer', 'full_name': fullName.trim()},
+    );
+    state = AppAuthState.fromSession(response.session);
+  }
+
+  Future<void> signOut() async {
+    await _supabase.auth.signOut();
+    state = const AppAuthState.unauthenticated();
+  }
+}
+
+AppRole _roleFromUser(User user) {
+  final metadata = user.userMetadata ?? const <String, dynamic>{};
+  final rawRole = metadata['role'];
+  if (rawRole is String && rawRole.toLowerCase() == 'cashier') {
+    return AppRole.cashier;
+  }
+
+  return AppRole.customer;
+}
+
+String? _readUserName(User user) {
+  final metadata = user.userMetadata ?? const <String, dynamic>{};
+  final rawName = metadata['full_name'];
+  if (rawName is String && rawName.trim().isNotEmpty) {
+    return rawName.trim();
+  }
+
+  final email = user.email;
+  return email?.isNotEmpty == true ? email : null;
 }
 
 extension AppRoleRoutes on AppRole {
@@ -161,6 +268,7 @@ class SmartCashierTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: 'Inter',
+      splashFactory: InkRipple.splashFactory,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       appBarTheme: const AppBarTheme(
@@ -589,11 +697,60 @@ extension RupiahFormat on int {
   }
 }
 
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .signIn(
+            email: _emailController.text,
+            password: _passwordController.text,
+          );
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Login gagal: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -611,44 +768,315 @@ class LoginScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Fast mobile POS for food service teams',
+              'Masuk memakai akun Supabase untuk role user atau kasir.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: SmartCashierTheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 40),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.mail_outline),
+            const SizedBox(height: 28),
+            if (authState.isSignedIn)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(
+                        backgroundColor: SmartCashierTheme.primary,
+                        foregroundColor: Colors.white,
+                        child: Icon(Icons.verified),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Login aktif sebagai ${authState.displayName}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.mail_outline),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Email wajib diisi';
+                        }
+
+                        if (!value.contains('@')) {
+                          return 'Email tidak valid';
+                        }
+
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password wajib diisi';
+                        }
+
+                        if (value.length < 6) {
+                          return 'Minimal 6 karakter';
+                        }
+
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _isSubmitting ? null : _submit,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.login),
+              label: const Text('Masuk'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _isSubmitting ? null : () => context.go('/register'),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Daftar user'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class RegisterUserScreen extends ConsumerStatefulWidget {
+  const RegisterUserScreen({super.key});
+
+  @override
+  ConsumerState<RegisterUserScreen> createState() => _RegisterUserScreenState();
+}
+
+class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .registerCustomer(
+            fullName: _nameController.text,
+            email: _emailController.text,
+            password: _passwordController.text,
+          );
+
+      if (!mounted) return;
+
+      final authState = ref.read(authProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authState.isSignedIn
+                ? 'Akun user berhasil dibuat dan langsung masuk'
+                : 'Akun user berhasil dibuat. Cek email untuk verifikasi jika diminta Supabase.',
+          ),
+        ),
+      );
+      if (!authState.isSignedIn) {
+        context.go('/login');
+      }
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Registrasi gagal: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Daftar User'),
+        leading: IconButton(
+          onPressed: () => context.go('/login'),
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SmartCashierLogo(size: 84),
+            const SizedBox(height: 24),
+            Text(
+              'Buat akun user baru',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Akun yang dibuat dari sini selalu tersimpan di Supabase sebagai customer.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: SmartCashierTheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 14),
-            const TextField(
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icon(Icons.lock_outline),
+            const SizedBox(height: 28),
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama lengkap',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Nama wajib diisi';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.mail_outline),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Email wajib diisi';
+                      }
+
+                      if (!value.contains('@')) {
+                        return 'Email tidak valid';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Password wajib diisi';
+                      }
+
+                      if (value.length < 6) {
+                        return 'Minimal 6 karakter';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Konfirmasi password',
+                      prefixIcon: Icon(Icons.lock_reset_outlined),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Konfirmasi password wajib diisi';
+                      }
+
+                      if (value != _passwordController.text) {
+                        return 'Password tidak sama';
+                      }
+
+                      return null;
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () {
-                ref.read(authProvider.notifier).signIn(AppRole.cashier);
-                context.go('/cashier');
-              },
-              icon: const Icon(Icons.point_of_sale),
-              label: const Text('Masuk sebagai kasir'),
+              onPressed: _isSubmitting ? null : _submit,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.person_add),
+              label: const Text('Buat akun user'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () {
-                ref.read(authProvider.notifier).signIn(AppRole.customer);
-                context.go('/');
-              },
-              icon: const Icon(Icons.restaurant_menu),
-              label: const Text('Masuk sebagai user'),
+              onPressed: _isSubmitting ? null : () => context.go('/login'),
+              icon: const Icon(Icons.login),
+              label: const Text('Kembali ke login'),
             ),
           ],
         ),
@@ -678,9 +1106,11 @@ class CustomerHomeScreen extends ConsumerWidget {
             ),
           ),
           IconButton(
-            onPressed: () {
-              ref.read(authProvider.notifier).signOut();
-              context.go('/login');
+            onPressed: () async {
+              await ref.read(authProvider.notifier).signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
             icon: const Icon(Icons.logout),
           ),
@@ -726,9 +1156,11 @@ class CashierDashboardScreen extends ConsumerWidget {
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            onPressed: () {
-              ref.read(authProvider.notifier).signOut();
-              context.go('/login');
+            onPressed: () async {
+              await ref.read(authProvider.notifier).signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
             icon: const Icon(Icons.logout),
           ),
