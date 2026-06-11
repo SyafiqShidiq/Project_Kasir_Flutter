@@ -177,6 +177,19 @@ class AuthController extends Notifier<AppAuthState> {
         'alias': input,
       },
     );
+    final user = response.user;
+    if (user == null) {
+      throw StateError('Supabase signup did not return a user.');
+    }
+
+    await _supabase.from('account').upsert(<String, dynamic>{
+      'id': user.id,
+      'email': resolvedEmail,
+      'full_name': fullName.trim(),
+      'role': 'customer',
+      'alias': input,
+    });
+
     if (input.isNotEmpty) {
       await rememberAuthEmail(input, resolvedEmail);
     }
@@ -221,24 +234,32 @@ String normalizeEmailInput(String input) {
     return trimmed;
   }
 
-  return '$trimmed@dummy.local';
+  return _baseDummyEmailFor(trimmed);
 }
 
 String generateRegisterEmail(String input) {
   final trimmed = input.trim().toLowerCase();
-  if (trimmed.contains('@')) {
-    return trimmed;
-  }
-
-  final alias = _sanitizeEmailAlias(trimmed);
+  final alias = _sanitizeEmailAlias(_authAliasFromInput(trimmed));
   final stamp = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-  final nonce = Random.secure().nextInt(1 << 32).toRadixString(36);
-  return '$alias.$stamp$nonce@dummy.local';
+  final nonce = Random().nextInt(1 << 31).toRadixString(36);
+  return 'example+$alias.$stamp$nonce@gmail.com';
 }
 
 Future<String> resolveAuthEmail(String input) async {
   final trimmed = input.trim().toLowerCase();
   if (trimmed.contains('@')) {
+    final remembered = await lookupRememberedAuthEmail(trimmed);
+    if (remembered != null) {
+      return remembered;
+    }
+
+    final aliasRemembered = await lookupRememberedAuthEmail(
+      _authAliasFromInput(trimmed),
+    );
+    if (aliasRemembered != null) {
+      return aliasRemembered;
+    }
+
     return trimmed;
   }
 
@@ -247,7 +268,22 @@ Future<String> resolveAuthEmail(String input) async {
     return rememberedEmail;
   }
 
-  return '$trimmed@dummy.local';
+  return _baseDummyEmailFor(trimmed);
+}
+
+String _baseDummyEmailFor(String alias) {
+  final sanitizedAlias = _sanitizeEmailAlias(alias);
+  return 'example+$sanitizedAlias@gmail.com';
+}
+
+String _authAliasFromInput(String value) {
+  final trimmed = value.trim().toLowerCase();
+  if (!trimmed.contains('@')) {
+    return trimmed;
+  }
+
+  final localPart = trimmed.split('@').first;
+  return localPart;
 }
 
 String _sanitizeEmailAlias(String value) {
@@ -263,7 +299,17 @@ String _authEmailKey(String alias) {
 
 Future<void> rememberAuthEmail(String alias, String email) async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_authEmailKey(alias), email);
+  final normalizedInput = alias.trim().toLowerCase();
+  if (normalizedInput.isEmpty) {
+    return;
+  }
+
+  await prefs.setString(_authEmailKey(normalizedInput), email);
+
+  final derivedAlias = _authAliasFromInput(normalizedInput);
+  if (derivedAlias.isNotEmpty && derivedAlias != normalizedInput) {
+    await prefs.setString(_authEmailKey(derivedAlias), email);
+  }
 }
 
 Future<String?> lookupRememberedAuthEmail(String alias) async {
@@ -897,7 +943,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: 'Email / username',
-                        hintText: 'contoh: budi atau budi@example.com',
+                        hintText: 'contoh: budi atau example@gmail.com',
                         prefixIcon: Icon(Icons.mail_outline),
                       ),
                       validator: validateLoginAlias,
@@ -1048,7 +1094,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Akun yang dibuat dari sini selalu tersimpan di Supabase sebagai customer.',
+              'Akun yang dibuat dari sini selalu tersimpan di Supabase sebagai customer dengan email dummy Gmail.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: SmartCashierTheme.onSurfaceVariant,
@@ -1080,7 +1126,7 @@ class _RegisterUserScreenState extends ConsumerState<RegisterUserScreen> {
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'Email / username',
-                      hintText: 'contoh: budi atau budi@example.com',
+                      hintText: 'contoh: budi atau example@gmail.com',
                       prefixIcon: Icon(Icons.mail_outline),
                     ),
                     validator: validateLoginAlias,
