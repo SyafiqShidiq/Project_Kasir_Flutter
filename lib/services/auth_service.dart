@@ -14,6 +14,9 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    print('USERNAME: [$username]');
+    print('EMAIL: [$email]');
+    print('PASSWORD: [$password]');
     final response = await _supabase.auth.signUp(
       email: email,
       password: password,

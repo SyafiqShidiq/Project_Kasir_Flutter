@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../screens/register_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,7 +30,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const CustomerHomeScreen(),
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(
