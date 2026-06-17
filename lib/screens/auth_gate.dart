@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:project_kasir_flutter/screens/role_guard.dart';
 
 import '../providers/auth_provider.dart';
-import 'role_guard.dart';
 import 'login_screen.dart';
 
 class AuthGate extends ConsumerWidget {

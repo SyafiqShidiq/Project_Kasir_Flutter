@@ -70,8 +70,6 @@ class CustomerNavigationBar extends StatelessWidget {
             context.go('/user-home');
           case 1:
             context.go('/cart');
-          case 2:
-            context.go('/tracking');
         }
       },
       destinations: const [
@@ -84,11 +82,6 @@ class CustomerNavigationBar extends StatelessWidget {
           icon: Icon(Icons.shopping_cart_outlined),
           selectedIcon: Icon(Icons.shopping_cart),
           label: 'Cart',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.route_outlined),
-          selectedIcon: Icon(Icons.route),
-          label: 'Track',
         ),
       ],
     );
@@ -686,7 +679,10 @@ class CheckoutScreen extends ConsumerWidget {
           }
 
           ref.read(cartProvider.notifier).clear();
-          context.go('/tracking');
+          context.go('/user-home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pesanan berhasil dibuat!')),
+          );
         },
       ),
     );
@@ -745,60 +741,16 @@ class QrPaymentScreen extends ConsumerWidget {
           FilledButton.icon(
             onPressed: () {
               ref.read(cartProvider.notifier).clear();
-              context.go('/tracking');
+              context.go('/user-home');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Pembayaran berhasil!')),
+              );
             },
             icon: const Icon(Icons.check_circle_outline),
             label: const Text('Mark as paid'),
           ),
         ],
       ),
-    );
-  }
-}
-
-// ==================== ORDER TRACKING SCREEN ====================
-class OrderTrackingScreen extends ConsumerWidget {
-  const OrderTrackingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final order = ref.watch(cashierOrdersProvider).first;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Order Tracking'),
-        leading: IconButton(
-          onPressed: () => context.go('/user-home'),
-          icon: const Icon(Icons.arrow_back),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          OrderHeaderCard(order: order),
-          const SizedBox(height: 12),
-          OrderProgress(currentStep: order.status.step),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: 'Pickup details',
-            child: Column(
-              children: [
-                DetailRow(label: 'Order', value: order.id),
-                const Divider(height: 24),
-                const DetailRow(label: 'Counter', value: 'Pickup A'),
-                const Divider(height: 24),
-                DetailRow(
-                  label: 'Estimated ready',
-                  value: order.status == OrderStatus.ready
-                      ? 'Ready now'
-                      : '8 minutes',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: const CustomerNavigationBar(activeIndex: 2),
     );
   }
 }

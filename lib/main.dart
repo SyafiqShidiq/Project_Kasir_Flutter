@@ -145,10 +145,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/payment',
         builder: (context, state) => const QrPaymentScreen(),
       ),
-      GoRoute(
-        path: '/tracking',
-        builder: (context, state) => const OrderTrackingScreen(),
-      ),
       
       // Cashier Routes
       GoRoute(
@@ -199,7 +195,6 @@ extension AppRoleRoutes on AppRole {
           '/cart',
           '/checkout',
           '/payment',
-          '/tracking',
         }.contains(path);
       case AppRole.cashier:
         return const {
