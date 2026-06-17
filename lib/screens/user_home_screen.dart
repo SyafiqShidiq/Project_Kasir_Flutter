@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../main.dart';
+import '../providers/auth_provider.dart';
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -23,6 +24,16 @@ class UserHomeScreen extends ConsumerWidget {
               onPressed: () => context.go('/cart'),
               icon: const Icon(Icons.shopping_cart_outlined),
             ),
+          ),
+          const SizedBox(width: 8),
+          // ponytail: simple logout button
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () async {
+              ref.read(cartProvider.notifier).clear();
+              await ref.read(authServiceProvider).logout();
+            },
+            icon: const Icon(Icons.logout),
           ),
           const SizedBox(width: 12),
         ],

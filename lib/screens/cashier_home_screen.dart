@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../main.dart';
 import 'shared_widgets.dart'; 
+import '../providers/auth_provider.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
@@ -17,6 +18,17 @@ class CashierHomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
+        actions: [
+          // ponytail: simple logout button
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () async {
+              await ref.read(authServiceProvider).logout();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
