@@ -17,6 +17,8 @@ For help getting started with Flutter development, view the
 samples, guidance on mobile development, and a full API reference.
 
 ```
+
+```
 Project_Kasir_Flutter-main
 ├─ .metadata
 ├─ .stitch
@@ -174,7 +176,14 @@ Project_Kasir_Flutter-main
 │  ├─ providers
 │  │  └─ auth_provider.dart
 │  ├─ screens
-│  │  └─ register_screen.dart
+│  │  ├─ auth_gate.dart
+│  │  ├─ auth_test_page.dart
+│  │  ├─ cashier_home_screen.dart
+│  │  ├─ home_screen.dart
+│  │  ├─ login_screen.dart
+│  │  ├─ register_screen.dart
+│  │  ├─ role_guard.dart
+│  │  └─ user_home_screen.dart
 │  └─ services
 │     └─ auth_service.dart
 ├─ pubspec.lock
