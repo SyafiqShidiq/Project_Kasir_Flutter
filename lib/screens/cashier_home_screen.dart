@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../main.dart';
-import 'shared_widgets.dart'; 
+import 'shared_widgets.dart';
 import '../providers/auth_provider.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
@@ -23,7 +23,18 @@ class CashierHomeScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Logout',
             onPressed: () async {
-              await ref.read(authServiceProvider).logout();
+              try {
+                await ref.read(authServiceProvider).logout();
+                if (context.mounted) {
+                  context.go('/');
+                }
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Logout gagal: $error')),
+                  );
+                }
+              }
             },
             icon: const Icon(Icons.logout),
           ),
