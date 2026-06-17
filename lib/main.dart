@@ -5,10 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../screens/login_screen.dart';
-import '../screens/home_screen.dart';
-import '../screens/auth_test_page.dart';
 import '../screens/auth_gate.dart';
+import '../models/app_role.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +49,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CashierDashboardScreen(),
       ),
       GoRoute(
+        path: '/cashier/menu',
+        builder: (context, state) => const CashierMenuScreen(),
+      ),
+      GoRoute(
         path: '/order-detail',
         builder: (context, state) => const OrderDetailScreen(),
       ),
@@ -58,6 +60,48 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+class AuthController extends Notifier<AppRole?> {
+  @override
+  AppRole? build() => null;
+
+  void signIn(AppRole role) {
+    state = role;
+  }
+
+  void signOut() {
+    state = null;
+  }
+}
+
+extension AppRoleRoutes on AppRole {
+  String get homePath {
+    switch (this) {
+      case AppRole.user:
+        return '/';
+      case AppRole.cashier:
+        return '/cashier';
+    }
+  }
+
+  bool canAccess(String path) {
+    switch (this) {
+      case AppRole.user:
+        return const {
+          '/',
+          '/cart',
+          '/checkout',
+          '/payment',
+          '/tracking',
+        }.contains(path);
+      case AppRole.cashier:
+        return const {
+          '/cashier',
+          '/cashier/menu',
+          '/order-detail',
+        }.contains(path);
+    }
+  }
+}
 class SmartCashierApp extends ConsumerWidget {
   const SmartCashierApp({super.key});
 
@@ -148,13 +192,19 @@ class SmartCashierTheme {
   }
 }
 
-final productsProvider = Provider<List<Product>>(
-  (ref) => const [
+final productsProvider = NotifierProvider<ProductsController, List<Product>>(
+  ProductsController.new,
+);
+
+class ProductsController extends Notifier<List<Product>> {
+  @override
+  List<Product> build() => const [
     Product(
       id: 'p1',
       name: 'Crispy Chicken Bowl',
       category: 'Meals',
       price: 28000,
+      stock: 24,
       color: Color(0xFFFFD7C2),
       icon: Icons.rice_bowl,
     ),
@@ -163,6 +213,7 @@ final productsProvider = Provider<List<Product>>(
       name: 'Beef Teriyaki',
       category: 'Meals',
       price: 36000,
+      stock: 18,
       color: Color(0xFFDDE8D4),
       icon: Icons.lunch_dining,
     ),
@@ -171,6 +222,7 @@ final productsProvider = Provider<List<Product>>(
       name: 'Iced Matcha Latte',
       category: 'Drinks',
       price: 22000,
+      stock: 32,
       color: Color(0xFFD9F1E2),
       icon: Icons.local_cafe,
     ),
@@ -179,6 +231,7 @@ final productsProvider = Provider<List<Product>>(
       name: 'Berry Soda',
       category: 'Drinks',
       price: 18000,
+      stock: 27,
       color: Color(0xFFFFD5E5),
       icon: Icons.local_drink,
     ),
@@ -187,6 +240,7 @@ final productsProvider = Provider<List<Product>>(
       name: 'French Fries',
       category: 'Snacks',
       price: 17000,
+      stock: 8,
       color: Color(0xFFFFEDB5),
       icon: Icons.fastfood,
     ),
@@ -195,11 +249,71 @@ final productsProvider = Provider<List<Product>>(
       name: 'Chocolate Waffle',
       category: 'Dessert',
       price: 25000,
+      stock: 0,
+      isAvailable: false,
       color: Color(0xFFE7D4C5),
       icon: Icons.bakery_dining,
     ),
-  ],
-);
+  ];
+
+  void add(ProductDraft draft) {
+    final id = 'p${DateTime.now().microsecondsSinceEpoch}';
+    state = [
+      Product(
+        id: id,
+        name: draft.name,
+        category: draft.category,
+        price: draft.price,
+        stock: draft.stock,
+        color: draft.color,
+        icon: draft.icon,
+        isAvailable: draft.stock > 0,
+      ),
+      ...state,
+    ];
+  }
+
+  void update(String id, ProductDraft draft) {
+    state = [
+      for (final product in state)
+        if (product.id == id)
+          product.copyWith(
+            name: draft.name,
+            category: draft.category,
+            price: draft.price,
+            stock: draft.stock,
+            color: draft.color,
+            icon: draft.icon,
+            isAvailable: draft.stock > 0,
+          )
+        else
+          product,
+    ];
+  }
+
+  void toggleAvailability(Product product) {
+    state = [
+      for (final item in state)
+        if (item.id == product.id)
+          item.copyWith(isAvailable: !item.isAvailable)
+        else
+          item,
+    ];
+  }
+
+  void adjustStock(Product product, int delta) {
+    state = [
+      for (final item in state)
+        if (item.id == product.id)
+          item.copyWith(
+            stock: (item.stock + delta).clamp(0, 999),
+            isAvailable: item.stock + delta > 0,
+          )
+        else
+          item,
+    ];
+  }
+}
 
 final menuFilterProvider = NotifierProvider<MenuFilterController, MenuFilter>(
   MenuFilterController.new,
@@ -432,14 +546,59 @@ class Product {
     required this.name,
     required this.category,
     required this.price,
+    required this.stock,
     required this.color,
     required this.icon,
+    this.isAvailable = true,
   });
 
   final String id;
   final String name;
   final String category;
   final int price;
+  final int stock;
+  final Color color;
+  final IconData icon;
+  final bool isAvailable;
+
+  bool get isLowStock => stock > 0 && stock <= 10;
+
+  Product copyWith({
+    String? name,
+    String? category,
+    int? price,
+    int? stock,
+    Color? color,
+    IconData? icon,
+    bool? isAvailable,
+  }) {
+    return Product(
+      id: id,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      price: price ?? this.price,
+      stock: stock ?? this.stock,
+      color: color ?? this.color,
+      icon: icon ?? this.icon,
+      isAvailable: isAvailable ?? this.isAvailable,
+    );
+  }
+}
+
+class ProductDraft {
+  const ProductDraft({
+    required this.name,
+    required this.category,
+    required this.price,
+    required this.stock,
+    required this.color,
+    required this.icon,
+  });
+
+  final String name;
+  final String category;
+  final int price;
+  final int stock;
   final Color color;
   final IconData icon;
 }
@@ -586,6 +745,8 @@ class CashierDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orders = ref.watch(cashierOrdersProvider);
+    final products = ref.watch(productsProvider);
+    final activeProducts = products.where((item) => item.isAvailable).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -624,14 +785,20 @@ class CashierDashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: MetricCard(
-                  label: 'Paid',
-                  value: '31',
-                  icon: Icons.verified_user_outlined,
+                  label: 'Menu aktif',
+                  value: '$activeProducts',
+                  icon: Icons.restaurant_menu_outlined,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          CashierMenuShortcut(
+            totalMenu: products.length,
+            activeMenu: activeProducts,
+            lowStock: products.where((item) => item.isLowStock).length,
           ),
           const SizedBox(height: 20),
           Text(
@@ -658,8 +825,668 @@ class CashierDashboardScreen extends ConsumerWidget {
         icon: const Icon(Icons.refresh),
         label: const Text('Refresh queue'),
       ),
-      bottomNavigationBar: const CashierNavigationBar(),
+      bottomNavigationBar: const CashierNavigationBar(activeIndex: 0),
     );
+  }
+}
+
+class CashierMenuScreen extends ConsumerWidget {
+  const CashierMenuScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final products = ref.watch(filteredProductsProvider);
+    final allProducts = ref.watch(productsProvider);
+    final lowStock = allProducts.where((item) => item.isLowStock).length;
+    final inactive = allProducts.where((item) => !item.isAvailable).length;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Kelola Menu'),
+        actions: [
+          IconButton(
+            tooltip: 'Tambah menu',
+            onPressed: () => showMenuEditorSheet(context, ref),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
+        children: [
+          CashierMenuHero(
+            totalMenu: allProducts.length,
+            activeMenu: allProducts.where((item) => item.isAvailable).length,
+            lowStock: lowStock,
+            inactive: inactive,
+          ),
+          const SizedBox(height: 16),
+          const SearchPanel(),
+          const SizedBox(height: 14),
+          const CategoryChips(),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Daftar menu',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => showMenuEditorSheet(context, ref),
+                icon: const Icon(Icons.add),
+                label: const Text('Tambah'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (products.isEmpty)
+            const EmptyMenuResult()
+          else
+            for (final product in products) ...[
+              CashierMenuTile(product: product),
+              const SizedBox(height: 12),
+            ],
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showMenuEditorSheet(context, ref),
+        backgroundColor: SmartCashierTheme.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Menu baru'),
+      ),
+      bottomNavigationBar: const CashierNavigationBar(activeIndex: 1),
+    );
+  }
+}
+
+class CashierMenuShortcut extends StatelessWidget {
+  const CashierMenuShortcut({
+    super.key,
+    required this.totalMenu,
+    required this.activeMenu,
+    required this.lowStock,
+  });
+
+  final int totalMenu;
+  final int activeMenu;
+  final int lowStock;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: () => context.go('/cashier/menu'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: SmartCashierTheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu,
+                  color: SmartCashierTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kelola menu kasir',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$activeMenu aktif dari $totalMenu menu - $lowStock stok menipis',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: SmartCashierTheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CashierMenuHero extends StatelessWidget {
+  const CashierMenuHero({
+    super.key,
+    required this.totalMenu,
+    required this.activeMenu,
+    required this.lowStock,
+    required this.inactive,
+  });
+
+  final int totalMenu;
+  final int activeMenu;
+  final int lowStock;
+  final int inactive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: SmartCashierTheme.primary,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: SmartCashierTheme.primary.withValues(alpha: 0.24),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.inventory_2_outlined, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Menu & stok hari ini',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Atur ketersediaan, harga, dan stok tanpa mengganggu alur order.',
+            style: TextStyle(color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: MenuHeroMetric(label: 'Total', value: '$totalMenu'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: MenuHeroMetric(label: 'Aktif', value: '$activeMenu'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: MenuHeroMetric(label: 'Stok tipis', value: '$lowStock'),
+              ),
+            ],
+          ),
+          if (inactive > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              '$inactive menu sedang dinonaktifkan',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class MenuHeroMetric extends StatelessWidget {
+  const MenuHeroMetric({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CashierMenuTile extends ConsumerWidget {
+  const CashierMenuTile({super.key, required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statusColor = !product.isAvailable
+        ? SmartCashierTheme.outline
+        : product.isLowStock
+        ? Colors.orange.shade700
+        : Colors.green.shade700;
+    final statusText = !product.isAvailable
+        ? 'Nonaktif'
+        : product.isLowStock
+        ? 'Stok tipis'
+        : 'Tersedia';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: product.color,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    product.icon,
+                    color: SmartCashierTheme.primaryDark,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${product.category} • ${product.price.rupiah}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: SmartCashierTheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          MenuStatusChip(label: statusText, color: statusColor),
+                          MenuStatusChip(
+                            label: 'Stok ${product.stock}',
+                            color: SmartCashierTheme.primaryDark,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        showMenuEditorSheet(context, ref, product: product);
+                      case 'toggle':
+                        ref
+                            .read(productsProvider.notifier)
+                            .toggleAvailability(product);
+                      case 'restock':
+                        ref
+                            .read(productsProvider.notifier)
+                            .adjustStock(product, 5);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Text('Edit menu'),
+                    ),
+                    PopupMenuItem(
+                      value: 'toggle',
+                      child: Text(
+                        product.isAvailable ? 'Nonaktifkan' : 'Aktifkan',
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'restock',
+                      child: Text('Tambah stok +5'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => ref
+                        .read(productsProvider.notifier)
+                        .adjustStock(product, -1),
+                    icon: const Icon(Icons.remove),
+                    label: const Text('Kurangi'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => ref
+                        .read(productsProvider.notifier)
+                        .adjustStock(product, 1),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Stok'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MenuStatusChip extends StatelessWidget {
+  const MenuStatusChip({super.key, required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> showMenuEditorSheet(
+  BuildContext context,
+  WidgetRef _, {
+  Product? product,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => MenuEditorSheet(product: product),
+  );
+}
+
+class MenuEditorSheet extends ConsumerStatefulWidget {
+  const MenuEditorSheet({super.key, this.product});
+
+  final Product? product;
+
+  @override
+  ConsumerState<MenuEditorSheet> createState() => _MenuEditorSheetState();
+}
+
+class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _priceController;
+  late final TextEditingController _stockController;
+  late String _category;
+  late IconData _icon;
+  late Color _color;
+
+  static const _categories = ['Meals', 'Drinks', 'Snacks', 'Dessert'];
+  static const _icons = [
+    Icons.rice_bowl,
+    Icons.lunch_dining,
+    Icons.local_cafe,
+    Icons.local_drink,
+    Icons.fastfood,
+    Icons.bakery_dining,
+  ];
+  static const _colors = [
+    Color(0xFFFFD7C2),
+    Color(0xFFDDE8D4),
+    Color(0xFFD9F1E2),
+    Color(0xFFFFD5E5),
+    Color(0xFFFFEDB5),
+    Color(0xFFE7D4C5),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final product = widget.product;
+    _nameController = TextEditingController(text: product?.name ?? '');
+    _priceController = TextEditingController(
+      text: product == null ? '' : '${product.price}',
+    );
+    _stockController = TextEditingController(
+      text: product == null ? '10' : '${product.stock}',
+    );
+    _category = product?.category ?? _categories.first;
+    _icon = product?.icon ?? _icons.first;
+    _color = product?.color ?? _colors.first;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _stockController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottom),
+      decoration: const BoxDecoration(
+        color: SmartCashierTheme.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+        children: [
+          Center(
+            child: Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: SmartCashierTheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            widget.product == null ? 'Tambah menu baru' : 'Edit menu',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Lengkapi nama, kategori, harga, dan stok agar menu siap dipakai kasir.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: SmartCashierTheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _nameController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Nama menu',
+              prefixIcon: Icon(Icons.restaurant_menu),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _priceController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Harga',
+                    prefixIcon: Icon(Icons.payments_outlined),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _stockController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Stok',
+                    prefixIcon: Icon(Icons.inventory_2_outlined),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            initialValue: _category,
+            decoration: const InputDecoration(
+              labelText: 'Kategori',
+              prefixIcon: Icon(Icons.category_outlined),
+            ),
+            items: [
+              for (final category in _categories)
+                DropdownMenuItem(value: category, child: Text(category)),
+            ],
+            onChanged: (value) => setState(() => _category = value!),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Tampilan kartu',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final color in _colors)
+                ChoiceChip(
+                  selected: _color == color,
+                  onSelected: (_) => setState(() => _color = color),
+                  label: const SizedBox(width: 28, height: 20),
+                  avatar: CircleAvatar(backgroundColor: color),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final icon in _icons)
+                ChoiceChip(
+                  selected: _icon == icon,
+                  onSelected: (_) => setState(() => _icon = icon),
+                  label: Icon(icon, size: 20),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(
+              widget.product == null ? 'Simpan menu' : 'Simpan perubahan',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _save() {
+    final name = _nameController.text.trim();
+    final price = int.tryParse(_priceController.text.trim()) ?? 0;
+    final stock = int.tryParse(_stockController.text.trim()) ?? 0;
+
+    if (name.isEmpty || price <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama dan harga menu wajib diisi.')),
+      );
+      return;
+    }
+
+    final draft = ProductDraft(
+      name: name,
+      category: _category,
+      price: price,
+      stock: stock,
+      color: _color,
+      icon: _icon,
+    );
+
+    final product = widget.product;
+    final controller = ref.read(productsProvider.notifier);
+    if (product == null) {
+      controller.add(draft);
+    } else {
+      controller.update(product.id, draft);
+    }
+
+    Navigator.of(context).pop();
   }
 }
 
@@ -1363,17 +2190,21 @@ class CustomerNavigationBar extends StatelessWidget {
 }
 
 class CashierNavigationBar extends StatelessWidget {
-  const CashierNavigationBar({super.key});
+  const CashierNavigationBar({super.key, required this.activeIndex});
+
+  final int activeIndex;
 
   @override
   Widget build(BuildContext context) {
     return NavigationBar(
-      selectedIndex: 0,
+      selectedIndex: activeIndex,
       onDestinationSelected: (index) {
         switch (index) {
           case 0:
             context.go('/cashier');
           case 1:
+            context.go('/cashier/menu');
+          case 2:
             context.go('/order-detail');
         }
       },
@@ -1382,6 +2213,11 @@ class CashierNavigationBar extends StatelessWidget {
           icon: Icon(Icons.dashboard_outlined),
           selectedIcon: Icon(Icons.dashboard),
           label: 'Dashboard',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.restaurant_menu_outlined),
+          selectedIcon: Icon(Icons.restaurant_menu),
+          label: 'Menu',
         ),
         NavigationDestination(
           icon: Icon(Icons.receipt_long_outlined),
