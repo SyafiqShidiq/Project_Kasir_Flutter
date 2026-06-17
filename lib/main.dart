@@ -5,7 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../screens/register_screen.dart';
+import '../screens/login_screen.dart';
+import '../screens/home_screen.dart';
+import '../screens/auth_test_page.dart';
+import '../screens/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,8 +17,6 @@ Future<void> main() async {
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-  final supabase = Supabase.instance.client;
-  print('Current User: ${supabase.auth.currentUser}');
 
   runApp(
     const ProviderScope(
@@ -30,7 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => const AuthGate(),
       ),
       GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
       GoRoute(
