@@ -8,6 +8,7 @@ import 'screens/auth_gate.dart';
 import 'screens/user_home_screen.dart';
 import 'screens/cashier_home_screen.dart';
 import 'models/app_role.dart';
+import '../screens/register_screen.dart';
 
 // ==================== MAIN ====================
 Future<void> main() async {
@@ -132,6 +133,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/user-home',
         builder: (context, state) => const UserHomeScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
         path: '/cart',

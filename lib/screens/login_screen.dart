@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 
@@ -133,6 +134,16 @@ class _LoginScreenState
                 child: _isLoading
                     ? const CircularProgressIndicator()
                     : const Text('Masuk'),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextButton(
+              onPressed: () {
+                context.push('/register');
+              },
+              child: const Text(
+                'Belum punya akun? Daftar',
               ),
             ),
           ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 
@@ -121,10 +122,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
       // Navigasi ke login setelah 1.5 detik
       Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/login');
-        }
-      });
+      if (mounted) {
+        context.go('/');
+      }
+    });
     } catch (e) {
       if (!mounted) return;
 
@@ -383,7 +384,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Navigator.pushReplacementNamed(context, '/login');
+                              context.go('/');
                             },
                             child: Text(
                               "Masuk",
