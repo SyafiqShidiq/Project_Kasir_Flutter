@@ -47,7 +47,13 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    await _supabase.auth.signOut();
+    try {
+      await _supabase.auth.signOut();
+      // Clear any cached data if needed
+    } catch (e) {
+      print('Logout error: $e');
+      rethrow;
+    }
   }
 
   User? get currentUser {
@@ -65,18 +71,22 @@ class AuthService {
       return null;
     }
 
-    final Map<String, dynamic> data = await _supabase
-        .from('users')
-        .select()
-        .eq('id', user.id)
-        .single();
+    try {
+      final Map<String, dynamic> data = await _supabase
+          .from('users')
+          .select()
+          .eq('id', user.id)
+          .single();
 
-    return UserModel.fromJson(data);
+      return UserModel.fromJson(data);
+    } catch (e) {
+      print('Error getting profile: $e');
+      return null;
+    }
   }
 
   Future<AppRole?> getRole() async {
     final profile = await getCurrentProfile();
-
     return profile?.role;
   }
 
@@ -84,4 +94,3 @@ class AuthService {
     return currentSession != null;
   }
 }
-

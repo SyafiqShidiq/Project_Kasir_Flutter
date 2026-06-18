@@ -26,16 +26,27 @@ class UserHomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // ponytail: simple logout button
-          IconButton(
-            tooltip: 'Logout',
-            onPressed: () async {
-              ref.read(cartProvider.notifier).clear();
-              await ref.read(authServiceProvider).logout();
-            },
-            icon: const Icon(Icons.logout),
-          ),
-          const SizedBox(width: 12),
+          // Logout button with confirmation dialog
+          // Ganti tombol logout di user_home_screen.dart dengan ini:
+
+IconButton(
+  tooltip: 'Logout',
+  onPressed: () async {
+    // Clear cart
+    ref.read(cartProvider.notifier).clear();
+    
+    // Logout
+    await ref.read(authServiceProvider).logout();
+    
+    // Invalidate providers
+    ref.invalidate(authStateProvider);
+    ref.invalidate(userRoleProvider);
+    
+    // Navigate ke auth gate
+    context.go('/');
+  },
+  icon: const Icon(Icons.logout),
+),
         ],
       ),
       body: ListView(
@@ -62,6 +73,80 @@ class UserHomeScreen extends ConsumerWidget {
             ),
       bottomNavigationBar: const CustomerNavigationBar(activeIndex: 0),
     );
+  }
+
+  // Show logout confirmation dialog
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close dialog
+                await _handleLogout(context, ref);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Handle logout process
+  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+    try {
+      // Show loading indicator
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      
+      // Clear cart
+      ref.read(cartProvider.notifier).clear();
+      
+      // Perform logout
+      await ref.read(authServiceProvider).logout();
+      
+      // Invalidate all auth-related providers
+      ref.invalidate(authStateProvider);
+      ref.invalidate(currentUserProvider);
+      ref.invalidate(userRoleProvider);
+      ref.invalidate(isLoggedInProvider);
+      
+      // Navigate to auth gate (which will redirect to login)
+      context.go('/');
+      
+      // Show success message
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Logged out successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout failed: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }
 

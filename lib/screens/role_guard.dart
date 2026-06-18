@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../models/app_role.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-
+import '../models/app_role.dart';
 import 'user_home_screen.dart';
 import 'cashier_home_screen.dart';
 
@@ -12,37 +11,62 @@ class RoleGuard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authService = ref.read(authServiceProvider);
+    final authService = ref.watch(authServiceProvider);
+    
+    // Cek session dulu
+    if (authService.currentSession == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go('/');
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-    return FutureBuilder<AppRole?>(
-      future: authService.getRole(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
+    // Ambil role dari future
+    final roleFuture = ref.watch(userRoleProvider);
+
+    return roleFuture.when(
+      data: (role) {
+        if (role == null) {
+          // Role null, redirect ke login
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              context.go('/');
+            }
+          });
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Text(
-                snapshot.error.toString(),
-              ),
-            ),
-          );
+        // Tampilkan sesuai role
+        switch (role) {
+          case AppRole.user:
+            return const UserHomeScreen();
+          case AppRole.cashier:
+            return const CashierHomeScreen();
         }
-
-        final role = snapshot.data;
-
-        if (role == AppRole.cashier) {
-          return const CashierHomeScreen();
-        }
-
-        return const UserHomeScreen();
+      },
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (error, stack) {
+        // Error, redirect ke login
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go('/');
+          }
+        });
+        return const Scaffold(
+          body: Center(
+            child: Text('Error loading role. Redirecting...'),
+          ),
+        );
       },
     );
   }
