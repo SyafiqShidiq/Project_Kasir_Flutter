@@ -446,6 +446,39 @@ class PaymentMethodController extends Notifier<PaymentMethod> {
   }
 }
 
+// ---- CUSTOMER INFO ----
+class CustomerInfo {
+  final String name;
+  final String table;
+
+  const CustomerInfo({this.name = '', this.table = ''});
+
+  CustomerInfo copyWith({String? name, String? table}) {
+    return CustomerInfo(
+      name: name ?? this.name,
+      table: table ?? this.table,
+    );
+  }
+}
+
+class CustomerInfoController extends Notifier<CustomerInfo> {
+  @override
+  CustomerInfo build() => const CustomerInfo();
+
+  void update({required String name, required String table}) {
+    state = CustomerInfo(name: name, table: table);
+  }
+
+  void clear() {
+    state = const CustomerInfo();
+  }
+}
+
+final customerInfoProvider =
+    NotifierProvider<CustomerInfoController, CustomerInfo>(
+      CustomerInfoController.new,
+    );
+
 // ---- CASHIER ORDERS ----
 final cashierOrdersProvider =
     NotifierProvider<CashierOrdersController, List<CashierOrder>>(
@@ -504,6 +537,42 @@ class CashierOrdersController extends Notifier<List<CashierOrder>> {
         else
           item,
     ];
+  }
+
+  void addOrder({
+    required String customer,
+    required String note,
+    required CartState cart,
+  }) {
+    final lastIdStr = state.isEmpty ? '401' : state.last.id.replaceAll('#', '');
+    final lastIdNum = int.tryParse(lastIdStr) ?? 401;
+    final newId = '#${lastIdNum + 1}';
+
+    final colors = [
+      const Color(0xFFFFEDB5),
+      const Color(0xFFD9F1E2),
+      const Color(0xFFFFD5E5),
+    ];
+    final accent = colors[state.length % colors.length];
+
+    final newOrder = CashierOrder(
+      id: newId,
+      customer: customer,
+      status: OrderStatus.paid,
+      total: cart.total,
+      accent: accent,
+      items: [
+        for (final line in cart.lines)
+          OrderItem(
+            name: line.product.name,
+            quantity: line.quantity,
+            subtotal: line.subtotal,
+          ),
+      ],
+      note: note,
+    );
+
+    state = [...state, newOrder];
   }
 }
 

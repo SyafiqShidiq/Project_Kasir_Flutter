@@ -153,6 +153,17 @@ void main() {
     expect(find.text('Checkout'), findsOneWidget);
     expect(find.text('Customer'), findsOneWidget);
     expect(find.text('Payment method'), findsOneWidget);
+
+    // ponytail: verify text fields exist and accept input
+    expect(find.byKey(const Key('checkout_name_field')), findsOneWidget);
+    expect(find.byKey(const Key('checkout_table_field')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('checkout_name_field')), 'Budi');
+    await tester.enterText(find.byKey(const Key('checkout_table_field')), '5');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Budi'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
   });
 
   // Test 7: Navigation Bar Customer

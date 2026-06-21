@@ -29,24 +29,11 @@ class UserHomeScreen extends ConsumerWidget {
           // Logout button with confirmation dialog
           // Ganti tombol logout di user_home_screen.dart dengan ini:
 
-IconButton(
-  tooltip: 'Logout',
-  onPressed: () async {
-    // Clear cart
-    ref.read(cartProvider.notifier).clear();
-    
-    // Logout
-    await ref.read(authServiceProvider).logout();
-    
-    // Invalidate providers
-    ref.invalidate(authStateProvider);
-    ref.invalidate(userRoleProvider);
-    
-    // Navigate ke auth gate
-    context.go('/');
-  },
-  icon: const Icon(Icons.logout),
-),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () => _showLogoutDialog(context, ref),
+            icon: const Icon(Icons.logout),
+          ),
         ],
       ),
       body: ListView(
@@ -702,11 +689,34 @@ class SuggestedProductTile extends ConsumerWidget {
 }
 
 // ==================== CHECKOUT SCREEN ====================
-class CheckoutScreen extends ConsumerWidget {
+class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _tableController;
+
+  @override
+  void initState() {
+    super.initState();
+    final customerInfo = ref.read(customerInfoProvider);
+    _nameController = TextEditingController(text: customerInfo.name);
+    _tableController = TextEditingController(text: customerInfo.table);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _tableController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     final selectedPayment = ref.watch(paymentMethodProvider);
 
@@ -721,13 +731,31 @@ class CheckoutScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 132),
         children: [
-          const SectionCard(
+          SectionCard(
             title: 'Customer',
             child: Column(
               children: [
-                DetailRow(label: 'Name', value: 'Walk-in Customer'),
-                Divider(height: 24),
-                DetailRow(label: 'Table', value: 'Take away'),
+                TextField(
+                  key: const Key('checkout_name_field'),
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer Name',
+                    prefixIcon: Icon(Icons.person),
+                    hintText: 'e.g., Dina',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const Key('checkout_table_field'),
+                  controller: _tableController,
+                  decoration: const InputDecoration(
+                    labelText: 'Table Number',
+                    prefixIcon: Icon(Icons.table_restaurant),
+                    hintText: 'e.g., 5 (leave empty for Take away)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
               ],
             ),
           ),
@@ -769,12 +797,28 @@ class CheckoutScreen extends ConsumerWidget {
             : 'Place order',
         enabled: cart.itemCount > 0,
         onPressed: () {
+          // ponytail: save customer name and table to provider
+          final name = _nameController.text;
+          final table = _tableController.text;
+          ref.read(customerInfoProvider.notifier).update(
+            name: name,
+            table: table,
+          );
+
           if (selectedPayment == PaymentMethod.qris) {
             context.go('/payment');
             return;
           }
 
+          // Cash payment: create the order immediately
+          ref.read(cashierOrdersProvider.notifier).addOrder(
+            customer: name.isEmpty ? 'Walk-in Customer' : name,
+            note: table.isEmpty ? 'Take away' : 'Meja $table',
+            cart: cart,
+          );
+
           ref.read(cartProvider.notifier).clear();
+          ref.read(customerInfoProvider.notifier).clear();
           context.go('/user-home');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Pesanan berhasil dibuat!')),
@@ -836,7 +880,19 @@ class QrPaymentScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
+              // ponytail: create the cashier order from the qris flow
+              final customerInfo = ref.read(customerInfoProvider);
+              final name = customerInfo.name;
+              final table = customerInfo.table;
+              
+              ref.read(cashierOrdersProvider.notifier).addOrder(
+                customer: name.isEmpty ? 'Walk-in Customer' : name,
+                note: table.isEmpty ? 'Take away' : 'Meja $table',
+                cart: cart,
+              );
+
               ref.read(cartProvider.notifier).clear();
+              ref.read(customerInfoProvider.notifier).clear();
               context.go('/user-home');
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pembayaran berhasil!')),
