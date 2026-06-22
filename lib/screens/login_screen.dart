@@ -58,7 +58,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
 
       // PERUBAHAN: Ganti '/home' menjadi '/user-home'
-      context.go('/user-home');
+      context.go('/');
       
     } catch (e) {
       if (!mounted) return;
