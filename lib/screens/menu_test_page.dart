@@ -1,51 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/menu_service.dart';
+import '../providers/menu_provider.dart';
+import '../models/menu_model.dart';
 
-class MenuTestPage extends StatefulWidget {
-  const MenuTestPage({super.key});
-
-  @override
-  State<MenuTestPage> createState() =>
-      _MenuTestPageState();
-}
-
-class _MenuTestPageState
-    extends State<MenuTestPage> {
+class MenuTestScreen extends ConsumerWidget {
+  const MenuTestScreen({
+    super.key,
+  });
 
   @override
-  void initState() {
-    super.initState();
-    _testMenu();
-  }
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final menus =
+        ref.watch(menuListProvider);
 
-  Future<void> _testMenu() async {
-    try {
-      final menuService = MenuService();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Menu Provider Test',
+        ),
+      ),
+      body: menus.when(
+        data: (
+          List<MenuModel> data,
+        ) {
+          return Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.all(16),
+                child: Text(
+                  'Jumlah menu: ${data.length}',
+                  style:
+                      const TextStyle(
+                    fontSize: 18,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ),
 
-      final menus =
-          await menuService.getMenus();
+              Expanded(
+                child: ListView.builder(
+                  itemCount:
+                      data.length,
+                  itemBuilder:
+                      (
+                    context,
+                    index,
+                  ) {
+                    final menu =
+                        data[index];
 
-      debugPrint(
-        'Jumlah menu: ${menus.length}',
-      );
+                    return ListTile(
+                      title: Text(
+                        menu.name,
+                      ),
+                      subtitle: Text(
+                        menu.category,
+                      ),
+                      trailing: Text(
+                        'Rp ${menu.price}',
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
 
-      for (final menu in menus) {
-        debugPrint(menu.toString());
-      }
-    } catch (e) {
-      debugPrint(
-        'ERROR MENU: $e',
-      );
-    }
-  }
+        loading: () =>
+            const Center(
+          child:
+              CircularProgressIndicator(),
+        ),
 
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'Menu Test Page',
+        error: (
+          error,
+          stackTrace,
+        ) =>
+            Center(
+          child: Text(
+            'Error: $error',
+          ),
         ),
       ),
     );

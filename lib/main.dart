@@ -128,7 +128,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Auth Gate
       GoRoute(
         path: '/',
-        builder: (context, state) => const MenuTestPage(),
+        builder: (context, state) => const MenuTestScreen(),
       ),
       
       // User Routes
