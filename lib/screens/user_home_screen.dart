@@ -26,9 +26,6 @@ class UserHomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Logout button with confirmation dialog
-          // Ganti tombol logout di user_home_screen.dart dengan ini:
-
           IconButton(
             tooltip: 'Logout',
             onPressed: () => _showLogoutDialog(context, ref),
@@ -62,7 +59,6 @@ class UserHomeScreen extends ConsumerWidget {
     );
   }
 
-  // Show logout confirmation dialog
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -81,7 +77,7 @@ class UserHomeScreen extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
                 await _handleLogout(context, ref);
               },
               style: TextButton.styleFrom(
@@ -95,28 +91,21 @@ class UserHomeScreen extends ConsumerWidget {
     );
   }
 
-  // Handle logout process
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     try {
-      // Show loading indicator
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       
-      // Clear cart
       ref.read(cartProvider.notifier).clear();
       
-      // Perform logout
       await ref.read(authServiceProvider).logout();
       
-      // Invalidate all auth-related providers
       ref.invalidate(authStateProvider);
       ref.invalidate(currentUserProvider);
       ref.invalidate(userRoleProvider);
       ref.invalidate(isLoggedInProvider);
       
-      // Navigate to auth gate (which will redirect to login)
       context.go('/');
       
-      // Show success message
       scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('Logged out successfully'),
@@ -125,7 +114,6 @@ class UserHomeScreen extends ConsumerWidget {
         ),
       );
     } catch (e) {
-      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Logout failed: $e'),
@@ -688,7 +676,7 @@ class SuggestedProductTile extends ConsumerWidget {
   }
 }
 
-// ==================== CHECKOUT SCREEN ====================
+// ==================== CHECKOUT SCREEN (AUTO NAME FROM PROFILE) ====================
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -697,20 +685,17 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  late TextEditingController _nameController;
   late TextEditingController _tableController;
 
   @override
   void initState() {
     super.initState();
     final customerInfo = ref.read(customerInfoProvider);
-    _nameController = TextEditingController(text: customerInfo.name);
     _tableController = TextEditingController(text: customerInfo.table);
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _tableController.dispose();
     super.dispose();
   }
@@ -718,7 +703,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
-    final selectedPayment = ref.watch(paymentMethodProvider);
+    final userProfile = ref.watch(currentUserProvider);
+    
+    // Auto-fill name from logged in user profile
+    final customerName = userProfile.value?.username ?? 'Customer';
 
     return Scaffold(
       appBar: AppBar(
@@ -735,24 +723,70 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             title: 'Customer',
             child: Column(
               children: [
-                TextField(
-                  key: const Key('checkout_name_field'),
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Customer Name',
-                    prefixIcon: Icon(Icons.person),
-                    hintText: 'e.g., Dina',
-                    border: OutlineInputBorder(),
+                // Show logged in user info (read-only)
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: SmartCashierTheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: SmartCashierTheme.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: SmartCashierTheme.primary,
+                        foregroundColor: Colors.white,
+                        radius: 22,
+                        child: Text(
+                          customerName.isNotEmpty 
+                            ? customerName[0].toUpperCase() 
+                            : 'C',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              customerName,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Memesan sebagai $customerName',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: SmartCashierTheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.verified_user,
+                        color: SmartCashierTheme.primary,
+                        size: 20,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                // Table number field
                 TextField(
                   key: const Key('checkout_table_field'),
                   controller: _tableController,
                   decoration: const InputDecoration(
-                    labelText: 'Table Number',
+                    labelText: 'Nomor Meja',
                     prefixIcon: Icon(Icons.table_restaurant),
-                    hintText: 'e.g., 5 (leave empty for Take away)',
+                    hintText: 'e.g., 5 (kosongkan untuk Take away)',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -760,28 +794,62 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          // Payment method - QRIS only
           SectionCard(
-            title: 'Payment method',
+            title: 'Metode Pembayaran',
             child: Column(
               children: [
-                PaymentOption(
-                  icon: Icons.qr_code_2,
-                  title: 'QRIS',
-                  subtitle: 'Instant scan payment',
-                  selected: selectedPayment == PaymentMethod.qris,
-                  onTap: () => ref
-                      .read(paymentMethodProvider.notifier)
-                      .select(PaymentMethod.qris),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: SmartCashierTheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: SmartCashierTheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: SmartCashierTheme.primary,
+                        foregroundColor: Colors.white,
+                        child: const Icon(Icons.qr_code_2),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'QRIS',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              'Scan & bayar instan',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: SmartCashierTheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.check_circle,
+                        color: SmartCashierTheme.primary,
+                      ),
+                    ],
+                  ),
                 ),
-                const Divider(height: 24),
-                PaymentOption(
-                  icon: Icons.payments_outlined,
-                  title: 'Cash',
-                  subtitle: 'Pay at cashier',
-                  selected: selectedPayment == PaymentMethod.cash,
-                  onTap: () => ref
-                      .read(paymentMethodProvider.notifier)
-                      .select(PaymentMethod.cash),
+                const SizedBox(height: 12),
+                Text(
+                  'Pembayaran hanya tersedia melalui QRIS',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: SmartCashierTheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ],
             ),
@@ -792,37 +860,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
       bottomNavigationBar: CheckoutBar(
         total: cart.total,
-        label: selectedPayment == PaymentMethod.qris
-            ? 'Pay now'
-            : 'Place order',
+        label: 'Bayar dengan QRIS',
         enabled: cart.itemCount > 0,
         onPressed: () {
-          // ponytail: save customer name and table to provider
-          final name = _nameController.text;
+          // Save table info, name auto from profile
           final table = _tableController.text;
           ref.read(customerInfoProvider.notifier).update(
-            name: name,
+            name: customerName, // Auto dari profil user yang login
             table: table,
           );
 
-          if (selectedPayment == PaymentMethod.qris) {
-            context.go('/payment');
-            return;
-          }
-
-          // Cash payment: create the order immediately
-          ref.read(cashierOrdersProvider.notifier).addOrder(
-            customer: name.isEmpty ? 'Walk-in Customer' : name,
-            note: table.isEmpty ? 'Take away' : 'Meja $table',
-            cart: cart,
-          );
-
-          ref.read(cartProvider.notifier).clear();
-          ref.read(customerInfoProvider.notifier).clear();
-          context.go('/user-home');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Pesanan berhasil dibuat!')),
-          );
+          // Go to QR payment screen
+          context.go('/payment');
         },
       ),
     );
@@ -836,6 +885,7 @@ class QrPaymentScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
+    final customerInfo = ref.watch(customerInfoProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -848,8 +898,50 @@ class QrPaymentScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Customer info card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: SmartCashierTheme.primary,
+                    foregroundColor: Colors.white,
+                    child: Text(
+                      customerInfo.name.isNotEmpty 
+                        ? customerInfo.name[0].toUpperCase() 
+                        : 'C',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pesanan atas nama ${customerInfo.name}',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        if (customerInfo.table.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Meja ${customerInfo.table}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: SmartCashierTheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           SectionCard(
-            title: 'Scan to pay',
+            title: 'Scan untuk Bayar',
             child: Column(
               children: [
                 Container(
@@ -871,22 +963,23 @@ class QrPaymentScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text('Order #402 - expires in 04:58'),
+                const Text('Scan kode QR untuk menyelesaikan pembayaran'),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          const OrderProgress(currentStep: 1),
+          const OrderProgress(currentStep: 0),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
-              // ponytail: create the cashier order from the qris flow
-              final customerInfo = ref.read(customerInfoProvider);
-              final name = customerInfo.name;
+              // Create order with customer name from profile
+              final name = customerInfo.name.isNotEmpty 
+                ? customerInfo.name 
+                : 'Customer';
               final table = customerInfo.table;
               
               ref.read(cashierOrdersProvider.notifier).addOrder(
-                customer: name.isEmpty ? 'Walk-in Customer' : name,
+                customer: name,
                 note: table.isEmpty ? 'Take away' : 'Meja $table',
                 cart: cart,
               );
@@ -895,84 +988,20 @@ class QrPaymentScreen extends ConsumerWidget {
               ref.read(customerInfoProvider.notifier).clear();
               context.go('/user-home');
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Pembayaran berhasil!')),
+                SnackBar(
+                  content: Text('Pesanan atas nama $name berhasil dibuat!'),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
             icon: const Icon(Icons.check_circle_outline),
-            label: const Text('Mark as paid'),
+            label: const Text('Konfirmasi Pembayaran'),
           ),
         ],
       ),
     );
   }
 }
-
-// ==================== PAYMENT OPTION ====================
-class PaymentOption extends StatelessWidget {
-  const PaymentOption({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: selected
-                  ? SmartCashierTheme.primary
-                  : SmartCashierTheme.surfaceVariant,
-              foregroundColor: selected
-                  ? Colors.white
-                  : SmartCashierTheme.onSurface,
-              child: Icon(icon),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: SmartCashierTheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: selected
-                  ? SmartCashierTheme.primary
-                  : SmartCashierTheme.outline,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ==================== SHARED WIDGETS ====================
 // Widgets yang digunakan bersama user dan cashier
 
