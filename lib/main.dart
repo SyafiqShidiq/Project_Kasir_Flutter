@@ -443,100 +443,128 @@ final customerInfoProvider =
       CustomerInfoController.new,
     );
 
-// ---- CASHIER ORDERS ----
+// ---- CASHIER ORDERS (REAL DATA FROM SUPABASE) ----
 final cashierOrdersProvider =
     NotifierProvider<CashierOrdersController, List<CashierOrder>>(
       CashierOrdersController.new,
     );
 
 class CashierOrdersController extends Notifier<List<CashierOrder>> {
+  final _supabase = Supabase.instance.client;
+
   @override
-  List<CashierOrder> build() => const [
-    CashierOrder(
-      id: '#402',
-      customer: 'Dina',
-      status: OrderStatus.preparing,
-      total: 86000,
-      accent: Color(0xFFFFEDB5),
-      items: [
-        OrderItem(name: 'Crispy Chicken Bowl', quantity: 2, subtotal: 56000),
-        OrderItem(name: 'Iced Matcha Latte', quantity: 1, subtotal: 22000),
-      ],
-      note: 'No onion. Extra sauce on the side.',
-    ),
-    CashierOrder(
-      id: '#403',
-      customer: 'Rafi',
-      status: OrderStatus.ready,
-      total: 54000,
-      accent: Color(0xFFD9F1E2),
-      items: [
-        OrderItem(name: 'Beef Teriyaki', quantity: 1, subtotal: 36000),
-        OrderItem(name: 'Berry Soda', quantity: 1, subtotal: 18000),
-      ],
-      note: 'Take away.',
-    ),
-    CashierOrder(
-      id: '#404',
-      customer: 'Maya',
-      status: OrderStatus.paid,
-      total: 118000,
-      accent: Color(0xFFFFD5E5),
-      items: [
-        OrderItem(name: 'Chocolate Waffle', quantity: 2, subtotal: 50000),
-        OrderItem(name: 'French Fries', quantity: 4, subtotal: 68000),
-      ],
-      note: 'Serve drinks later.',
-    ),
-  ];
-
-  CashierOrder get selectedOrder => state.first;
-
-  void markSelectedReady() {
-    final order = selectedOrder;
-    state = [
-      for (final item in state)
-        if (item.id == order.id)
-          item.copyWith(status: OrderStatus.ready)
-        else
-          item,
-    ];
+  List<CashierOrder> build() {
+    _loadOrders();
+    return [];
   }
 
-  void addOrder({
+  Future<void> _loadOrders() async {
+    try {
+      final ordersData = await _supabase
+          .from('orders')
+          .select()
+          .order('created_at', ascending: false);
+
+      List<CashierOrder> orders = [];
+
+      for (final orderJson in ordersData) {
+        // Ambil items untuk setiap order
+        final itemsData = await _supabase
+            .from('order_items')
+            .select()
+            .eq('order_id', orderJson['id']);
+
+        final items = itemsData.map<OrderItem>((item) {
+          return OrderItem(
+            name: item['menu_id'] ?? '',  // Nanti bisa di-join dengan menus
+            quantity: item['quantity'] ?? 0,
+            subtotal: item['subtotal'] ?? 0,
+          );
+        }).toList();
+
+        orders.add(CashierOrder.fromOrderJson(orderJson, items));
+      }
+
+      print('DEBUG: Loaded ${orders.length} orders from database');
+      state = orders;
+    } catch (e) {
+      print('Error loading orders: $e');
+    }
+  }
+
+  CashierOrder get selectedOrder {
+    if (state.isEmpty) {
+      return CashierOrder.empty();
+    }
+    return state.first;
+  }
+
+  Future<void> markOrderReady(String orderId) async {
+    try {
+      await _supabase.from('orders').update({
+        'order_status': 'ready',
+      }).eq('id', orderId);
+
+      await _loadOrders();
+    } catch (e) {
+      print('Error updating order status: $e');
+    }
+  }
+
+  Future<void> addOrder({
     required String customer,
     required String note,
     required CartState cart,
-  }) {
-    final lastIdStr = state.isEmpty ? '401' : state.last.id.replaceAll('#', '');
-    final lastIdNum = int.tryParse(lastIdStr) ?? 401;
-    final newId = '#${lastIdNum + 1}';
+  }) async {
+    try {
+      print('=== ADDING ORDER ===');
+      print('Customer: $customer');
+      print('Note: $note');
+      print('Total: ${cart.total}');
 
-    final colors = [
-      const Color(0xFFFFEDB5),
-      const Color(0xFFD9F1E2),
-      const Color(0xFFFFD5E5),
-    ];
-    final accent = colors[state.length % colors.length];
+      // 1. Insert ke tabel orders
+      final orderNumber = 'ORD${DateTime.now().millisecondsSinceEpoch}';
+      final orderResponse = await _supabase.from('orders').insert({
+        'order_number': orderNumber,
+        'user_id': _supabase.auth.currentUser?.id,
+        'total_amount': cart.total,
+        'order_status': 'pending',
+        'payment_status': 'paid',
+        'payment_method': 'qris',
+        'table_number': note.contains('Meja') ? note.replaceAll('Meja ', '') : null,
+      }).select();
 
-    final newOrder = CashierOrder(
-      id: newId,
-      customer: customer,
-      status: OrderStatus.paid,
-      total: cart.total,
-      accent: accent,
-      items: [
-        for (final line in cart.lines)
-          OrderItem(
-            name: line.product.name,
-            quantity: line.quantity,
-            subtotal: line.subtotal,
-          ),
-      ],
-      note: note,
-    );
+      if (orderResponse.isEmpty) {
+        throw Exception('Gagal membuat order');
+      }
 
-    state = [...state, newOrder];
+      final orderId = orderResponse.first['id'];
+      print('Order created: $orderNumber (ID: $orderId)');
+
+      // 2. Insert ke tabel order_items
+      for (final line in cart.lines) {
+        await _supabase.from('order_items').insert({
+          'order_id': orderId,
+          'menu_id': line.product.id,
+          'quantity': line.quantity,
+          'price': line.product.price,
+          'subtotal': line.subtotal,
+        });
+        print('Item added: ${line.product.name} x${line.quantity}');
+      }
+
+      print('=== ORDER COMPLETED ===');
+
+      // 3. Refresh daftar order
+      await _loadOrders();
+    } catch (e) {
+      print('Error adding order: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> refresh() async {
+    await _loadOrders();
   }
 }
 
@@ -707,9 +735,11 @@ class CashierOrder {
     required this.accent,
     required this.items,
     required this.note,
+    required this.orderNumber,
   });
 
   final String id;
+  final String orderNumber;
   final String customer;
   final OrderStatus status;
   final int total;
@@ -720,6 +750,7 @@ class CashierOrder {
   CashierOrder copyWith({OrderStatus? status}) {
     return CashierOrder(
       id: id,
+      orderNumber: orderNumber,
       customer: customer,
       status: status ?? this.status,
       total: total,
@@ -728,8 +759,59 @@ class CashierOrder {
       note: note,
     );
   }
-}
 
+  factory CashierOrder.fromOrderJson(Map<String, dynamic> json, List<OrderItem> items) {
+    final statusColors = {
+      'pending': const Color(0xFFFFD5E5),
+      'preparing': const Color(0xFFFFEDB5),
+      'ready': const Color(0xFFD9F1E2),
+      'completed': const Color(0xFFE7D4C5),
+    };
+
+    // Ambil customer name dari user_id (nanti bisa di-join)
+    final tableNum = json['table_number'];
+    final note = tableNum != null ? 'Meja $tableNum' : 'Take away';
+
+    return CashierOrder(
+      id: json['id'] ?? '',
+      orderNumber: json['order_number'] ?? '',
+      customer: 'Customer', // Nanti bisa diganti dengan join ke users
+      status: _parseStatus(json['order_status']),
+      total: json['total_amount'] ?? 0,
+      accent: statusColors[json['order_status']] ?? const Color(0xFFFFEDB5),
+      items: items,
+      note: note,
+    );
+  }
+
+  static CashierOrder empty() {
+    return const CashierOrder(
+      id: '',
+      orderNumber: '',
+      customer: '',
+      status: OrderStatus.paid,
+      total: 0,
+      accent: Color(0xFFFFEDB5),
+      items: [],
+      note: '',
+    );
+  }
+
+  static OrderStatus _parseStatus(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return OrderStatus.paid;
+      case 'preparing':
+        return OrderStatus.preparing;
+      case 'ready':
+        return OrderStatus.ready;
+      case 'completed':
+        return OrderStatus.pickedUp;
+      default:
+        return OrderStatus.paid;
+    }
+  }
+}
 class CartLine {
   const CartLine({required this.product, required this.quantity});
 

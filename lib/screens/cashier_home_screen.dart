@@ -102,17 +102,26 @@ class CashierHomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ref.read(productsProvider.notifier).refresh();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Data berhasil direfresh!')),
-          );
-        },
-        backgroundColor: SmartCashierTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Refresh'),
-      ),
+  onPressed: () async {
+    // Refresh produk
+    await ref.read(productsProvider.notifier).refresh();
+    // Refresh order
+    await ref.read(cashierOrdersProvider.notifier).refresh();
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Data berhasil direfresh!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  },
+  backgroundColor: SmartCashierTheme.primary,
+  foregroundColor: Colors.white,
+  icon: const Icon(Icons.refresh),
+  label: const Text('Refresh'),
+),
       bottomNavigationBar: const CashierNavigationBar(activeIndex: 0),
     );
   }
@@ -803,18 +812,32 @@ class OrderTile extends StatelessWidget {
   }
 }
 
-// ==================== ORDER DETAIL SCREEN ====================
 class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final order = ref.watch(cashierOrdersProvider).first;
+    final orders = ref.watch(cashierOrdersProvider);
+    
+    if (orders.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Order Detail'),
+          leading: IconButton(
+            onPressed: () => context.go('/cashier'),
+            icon: const Icon(Icons.arrow_back),
+          ),
+        ),
+        body: const Center(child: Text('Tidak ada order')),
+      );
+    }
+
+    final order = orders.first;
     final isReady = order.status == OrderStatus.ready;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order ${order.id}'),
+        title: Text('Order ${order.orderNumber}'),
         leading: IconButton(
           onPressed: () => context.go('/cashier'),
           icon: const Icon(Icons.arrow_back),
@@ -840,7 +863,7 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          SectionCard(title: 'Kitchen notes', child: Text(order.note)),
+          SectionCard(title: 'Catatan', child: Text(order.note)),
         ],
       ),
       bottomNavigationBar: Padding(
@@ -849,13 +872,13 @@ class OrderDetailScreen extends ConsumerWidget {
           onPressed: isReady
               ? null
               : () {
-                  ref.read(cashierOrdersProvider.notifier).markSelectedReady();
+                  ref.read(cashierOrdersProvider.notifier).markOrderReady(order.id);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${order.id} is ready for pickup')),
+                    SnackBar(content: Text('${order.orderNumber} siap diambil')),
                   );
                 },
           icon: const Icon(Icons.done_all),
-          label: Text(isReady ? 'Already ready' : 'Ready for pickup'),
+          label: Text(isReady ? 'Sudah siap' : 'Tandai siap'),
         ),
       ),
     );
