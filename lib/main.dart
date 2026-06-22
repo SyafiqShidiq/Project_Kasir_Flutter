@@ -213,127 +213,91 @@ extension AppRoleRoutes on AppRole {
 
 // ==================== PROVIDERS & MODELS ====================
 
-// ---- PRODUCTS ----
+// ---- PRODUCTS (REAL DATA FROM SUPABASE - TABEL menus) ----
 final productsProvider = NotifierProvider<ProductsController, List<Product>>(
   ProductsController.new,
 );
 
 class ProductsController extends Notifier<List<Product>> {
+  final _supabase = Supabase.instance.client;
+
   @override
-  List<Product> build() => const [
-    Product(
-      id: 'p1',
-      name: 'Crispy Chicken Bowl',
-      category: 'Meals',
-      price: 28000,
-      stock: 24,
-      color: Color(0xFFFFD7C2),
-      icon: Icons.rice_bowl,
-    ),
-    Product(
-      id: 'p2',
-      name: 'Beef Teriyaki',
-      category: 'Meals',
-      price: 36000,
-      stock: 18,
-      color: Color(0xFFDDE8D4),
-      icon: Icons.lunch_dining,
-    ),
-    Product(
-      id: 'p3',
-      name: 'Iced Matcha Latte',
-      category: 'Drinks',
-      price: 22000,
-      stock: 32,
-      color: Color(0xFFD9F1E2),
-      icon: Icons.local_cafe,
-    ),
-    Product(
-      id: 'p4',
-      name: 'Berry Soda',
-      category: 'Drinks',
-      price: 18000,
-      stock: 27,
-      color: Color(0xFFFFD5E5),
-      icon: Icons.local_drink,
-    ),
-    Product(
-      id: 'p5',
-      name: 'French Fries',
-      category: 'Snacks',
-      price: 17000,
-      stock: 8,
-      color: Color(0xFFFFEDB5),
-      icon: Icons.fastfood,
-    ),
-    Product(
-      id: 'p6',
-      name: 'Chocolate Waffle',
-      category: 'Dessert',
-      price: 25000,
-      stock: 0,
-      isAvailable: false,
-      color: Color(0xFFE7D4C5),
-      icon: Icons.bakery_dining,
-    ),
-  ];
-
-  void add(ProductDraft draft) {
-    final id = 'p${DateTime.now().microsecondsSinceEpoch}';
-    state = [
-      Product(
-        id: id,
-        name: draft.name,
-        category: draft.category,
-        price: draft.price,
-        stock: draft.stock,
-        color: draft.color,
-        icon: draft.icon,
-        isAvailable: draft.stock > 0,
-      ),
-      ...state,
-    ];
+  List<Product> build() {
+    _loadProducts();
+    return [];
   }
 
-  void update(String id, ProductDraft draft) {
-    state = [
-      for (final product in state)
-        if (product.id == id)
-          product.copyWith(
-            name: draft.name,
-            category: draft.category,
-            price: draft.price,
-            stock: draft.stock,
-            color: draft.color,
-            icon: draft.icon,
-            isAvailable: draft.stock > 0,
-          )
-        else
-          product,
-    ];
+  Future<void> _loadProducts() async {
+    try {
+      final data = await _supabase
+          .from('menus')
+          .select()
+          .order('created_at', ascending: false);
+
+      state = data.map<Product>((json) {
+        return Product.fromMenuJson(json);
+      }).toList();
+      
+      print('DEBUG: Loaded ${state.length} products from menus');
+    } catch (e) {
+      print('Error loading menus: $e');
+    }
   }
 
-  void toggleAvailability(Product product) {
-    state = [
-      for (final item in state)
-        if (item.id == product.id)
-          item.copyWith(isAvailable: !item.isAvailable)
-        else
-          item,
-    ];
+  Future<void> add(ProductDraft draft) async {
+    try {
+      await _supabase.from('menus').insert({
+        'name': draft.name,
+        'description': '${draft.category} menu',
+        'price': draft.price,
+        'category': draft.category,
+        'is_available': true,  // Default available pas pertama dibuat
+      });
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error adding menu: $e');
+      rethrow;
+    }
   }
 
-  void adjustStock(Product product, int delta) {
-    state = [
-      for (final item in state)
-        if (item.id == product.id)
-          item.copyWith(
-            stock: (item.stock + delta).clamp(0, 999),
-            isAvailable: item.stock + delta > 0,
-          )
-        else
-          item,
-    ];
+  Future<void> update(String id, ProductDraft draft) async {
+    try {
+      await _supabase.from('menus').update({
+        'name': draft.name,
+        'category': draft.category,
+        'price': draft.price,
+      }).eq('id', id);
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error updating menu: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> toggleAvailability(Product product) async {
+    try {
+      await _supabase.from('menus').update({
+        'is_available': !product.isAvailable,
+      }).eq('id', product.id);
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error toggling availability: $e');
+      // Fallback: update state lokal
+      state = [
+        for (final item in state)
+          if (item.id == product.id)
+            item.copyWith(isAvailable: !item.isAvailable)
+          else
+            item,
+      ];
+    }
+  }
+
+  Future<void> refresh() async {
+    await _loadProducts();
   }
 }
 
@@ -643,7 +607,6 @@ class Product {
     required this.name,
     required this.category,
     required this.price,
-    required this.stock,
     required this.color,
     required this.icon,
     this.isAvailable = true,
@@ -653,18 +616,14 @@ class Product {
   final String name;
   final String category;
   final int price;
-  final int stock;
   final Color color;
   final IconData icon;
   final bool isAvailable;
-
-  bool get isLowStock => stock > 0 && stock <= 10;
 
   Product copyWith({
     String? name,
     String? category,
     int? price,
-    int? stock,
     Color? color,
     IconData? icon,
     bool? isAvailable,
@@ -674,11 +633,40 @@ class Product {
       name: name ?? this.name,
       category: category ?? this.category,
       price: price ?? this.price,
-      stock: stock ?? this.stock,
       color: color ?? this.color,
       icon: icon ?? this.icon,
       isAvailable: isAvailable ?? this.isAvailable,
     );
+  }
+
+  factory Product.fromMenuJson(Map<String, dynamic> json) {
+    final categoryIcons = {
+      'Meals': Icons.rice_bowl,
+      'Drinks': Icons.local_cafe,
+      'Snacks': Icons.fastfood,
+      'Dessert': Icons.bakery_dining,
+    };
+
+    final categoryColors = {
+      'Meals': const Color(0xFFFFD7C2),
+      'Drinks': const Color(0xFFD9F1E2),
+      'Snacks': const Color(0xFFFFEDB5),
+      'Dessert': const Color(0xFFE7D4C5),
+    };
+
+    return Product(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      category: json['category'] ?? '',
+      price: json['price'] ?? 0,
+      color: categoryColors[json['category']] ?? const Color(0xFFFFD7C2),
+      icon: categoryIcons[json['category']] ?? Icons.restaurant_menu,
+      isAvailable: json['is_available'] ?? true,
+    );
+  }
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product.fromMenuJson(json);
   }
 }
 
@@ -687,7 +675,6 @@ class ProductDraft {
     required this.name,
     required this.category,
     required this.price,
-    required this.stock,
     required this.color,
     required this.icon,
   });
@@ -695,7 +682,6 @@ class ProductDraft {
   final String name;
   final String category;
   final int price;
-  final int stock;
   final Color color;
   final IconData icon;
 }
