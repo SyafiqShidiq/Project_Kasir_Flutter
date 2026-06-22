@@ -93,32 +93,25 @@ class UserHomeScreen extends ConsumerWidget {
 
   Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
     try {
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
-      
       ref.read(cartProvider.notifier).clear();
-      
+
       await ref.read(authServiceProvider).logout();
-      
+
       ref.invalidate(authStateProvider);
       ref.invalidate(currentUserProvider);
       ref.invalidate(userRoleProvider);
       ref.invalidate(isLoggedInProvider);
-      
+
+      if (!context.mounted) return;
+
       context.go('/');
-      
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Logged out successfully'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Logout failed: $e'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
     }

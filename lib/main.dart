@@ -10,6 +10,8 @@ import 'screens/cashier_home_screen.dart';
 import 'models/app_role.dart';
 import '../screens/register_screen.dart';
 
+import '../screens/menu_test_page.dart';
+
 // ==================== MAIN ====================
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -126,7 +128,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Auth Gate
       GoRoute(
         path: '/',
-        builder: (context, state) => const AuthGate(),
+        builder: (context, state) => const MenuTestPage(),
       ),
       
       // User Routes

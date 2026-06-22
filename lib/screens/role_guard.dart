@@ -29,9 +29,9 @@ class _RoleGuardState extends ConsumerState<RoleGuard> {
       final authService = ref.read(authServiceProvider);
       final role = await authService.getRole();
       
-      print('=== ROLE DEBUG ===');
-      print('Role from getRole(): $role');
-      print('==================');
+      debugPrint('=== ROLE DEBUG ===');
+      debugPrint('Role from getRole(): $role');
+      debugPrint('==================');
       
       if (mounted) {
         setState(() {
@@ -40,7 +40,7 @@ class _RoleGuardState extends ConsumerState<RoleGuard> {
         });
       }
     } catch (e) {
-      print('Error fetching role: $e');
+      debugPrint('Error fetching role: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -107,8 +107,9 @@ class _RoleGuardState extends ConsumerState<RoleGuard> {
               const Text('Pastikan akun Anda terdaftar dengan role yang sesuai'),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () {
-                  authService.logout();
+                onPressed: () async {
+                  await authService.logout();
+                  if (!context.mounted) return;
                   context.go('/');
                 },
                 child: const Text('Kembali ke Login'),
