@@ -19,7 +19,6 @@ class CashierHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
-          // ponytail: simple logout button
           IconButton(
             tooltip: 'Logout',
             onPressed: () async {
@@ -87,14 +86,13 @@ class CashierHomeScreen extends ConsumerWidget {
           CashierMenuShortcut(
             totalMenu: products.length,
             activeMenu: activeProducts,
-            lowStock: products.where((item) => item.isLowStock).length,
           ),
           const SizedBox(height: 20),
           Text(
             'Live orders',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           for (final order in orders) ...[
@@ -104,16 +102,26 @@ class CashierHomeScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Queue refreshed')));
-        },
-        backgroundColor: SmartCashierTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Refresh queue'),
-      ),
+  onPressed: () async {
+    // Refresh produk
+    await ref.read(productsProvider.notifier).refresh();
+    // Refresh order
+    await ref.read(cashierOrdersProvider.notifier).refresh();
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Data berhasil direfresh!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  },
+  backgroundColor: SmartCashierTheme.primary,
+  foregroundColor: Colors.white,
+  icon: const Icon(Icons.refresh),
+  label: const Text('Refresh'),
+),
       bottomNavigationBar: const CashierNavigationBar(activeIndex: 0),
     );
   }
@@ -168,7 +176,6 @@ class CashierMenuScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final products = ref.watch(filteredProductsProvider);
     final allProducts = ref.watch(productsProvider);
-    final lowStock = allProducts.where((item) => item.isLowStock).length;
     final inactive = allProducts.where((item) => !item.isAvailable).length;
 
     return Scaffold(
@@ -189,7 +196,6 @@ class CashierMenuScreen extends ConsumerWidget {
           CashierMenuHero(
             totalMenu: allProducts.length,
             activeMenu: allProducts.where((item) => item.isAvailable).length,
-            lowStock: lowStock,
             inactive: inactive,
           ),
           const SizedBox(height: 16),
@@ -202,9 +208,9 @@ class CashierMenuScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Daftar menu',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               TextButton.icon(
@@ -242,12 +248,10 @@ class CashierMenuShortcut extends StatelessWidget {
     super.key,
     required this.totalMenu,
     required this.activeMenu,
-    required this.lowStock,
   });
 
   final int totalMenu;
   final int activeMenu;
-  final int lowStock;
 
   @override
   Widget build(BuildContext context) {
@@ -284,7 +288,7 @@ class CashierMenuShortcut extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$activeMenu aktif dari $totalMenu menu - $lowStock stok menipis',
+                      '$activeMenu aktif dari $totalMenu menu',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: SmartCashierTheme.onSurfaceVariant,
                       ),
@@ -307,13 +311,11 @@ class CashierMenuHero extends StatelessWidget {
     super.key,
     required this.totalMenu,
     required this.activeMenu,
-    required this.lowStock,
     required this.inactive,
   });
 
   final int totalMenu;
   final int activeMenu;
-  final int lowStock;
   final int inactive;
 
   @override
@@ -340,7 +342,7 @@ class CashierMenuHero extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Menu & stok hari ini',
+                  'Menu kasir',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -351,7 +353,7 @@ class CashierMenuHero extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Atur ketersediaan, harga, dan stok tanpa mengganggu alur order.',
+            'Atur ketersediaan dan harga menu.',
             style: TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 16),
@@ -363,10 +365,6 @@ class CashierMenuHero extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: MenuHeroMetric(label: 'Aktif', value: '$activeMenu'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: MenuHeroMetric(label: 'Stok tipis', value: '$lowStock'),
               ),
             ],
           ),
@@ -432,126 +430,67 @@ class CashierMenuTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = !product.isAvailable
-        ? SmartCashierTheme.outline
-        : product.isLowStock
-        ? Colors.orange.shade700
-        : Colors.green.shade700;
-    final statusText = !product.isAvailable
-        ? 'Nonaktif'
-        : product.isLowStock
-        ? 'Stok tipis'
-        : 'Tersedia';
+    final statusColor = product.isAvailable
+        ? Colors.green.shade700
+        : SmartCashierTheme.outline;
+    final statusText = product.isAvailable ? 'Tersedia' : 'Nonaktif';
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: product.color,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    product.icon,
-                    color: SmartCashierTheme.primaryDark,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${product.category} • ${product.price.rupiah}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: SmartCashierTheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          MenuStatusChip(label: statusText, color: statusColor),
-                          MenuStatusChip(
-                            label: 'Stok ${product.stock}',
-                            color: SmartCashierTheme.primaryDark,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        showMenuEditorSheet(context, ref, product: product);
-                      case 'toggle':
-                        ref
-                            .read(productsProvider.notifier)
-                            .toggleAvailability(product);
-                      case 'restock':
-                        ref
-                            .read(productsProvider.notifier)
-                            .adjustStock(product, 5);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Edit menu'),
-                    ),
-                    PopupMenuItem(
-                      value: 'toggle',
-                      child: Text(
-                        product.isAvailable ? 'Nonaktifkan' : 'Aktifkan',
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'restock',
-                      child: Text('Tambah stok +5'),
-                    ),
-                  ],
-                ),
-              ],
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: product.color,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                product.icon,
+                color: SmartCashierTheme.primaryDark,
+                size: 30,
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => ref
-                        .read(productsProvider.notifier)
-                        .adjustStock(product, -1),
-                    icon: const Icon(Icons.remove),
-                    label: const Text('Kurangi'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => ref
-                        .read(productsProvider.notifier)
-                        .adjustStock(product, 1),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Stok'),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${product.category} • ${product.price.rupiah}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: SmartCashierTheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  MenuStatusChip(label: statusText, color: statusColor),
+                ],
+              ),
+            ),
+            // Toggle button
+            Switch(
+              value: product.isAvailable,
+              activeColor: Colors.green,
+              onChanged: (_) {
+                ref
+                    .read(productsProvider.notifier)
+                    .toggleAvailability(product);
+              },
+            ),
+            // Edit menu
+            IconButton(
+              tooltip: 'Edit menu',
+              onPressed: () => showMenuEditorSheet(context, ref, product: product),
+              icon: const Icon(Icons.edit_outlined),
             ),
           ],
         ),
@@ -614,7 +553,6 @@ class MenuEditorSheet extends ConsumerStatefulWidget {
 class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
-  late final TextEditingController _stockController;
   late String _category;
   late IconData _icon;
   late Color _color;
@@ -645,9 +583,6 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
     _priceController = TextEditingController(
       text: product == null ? '' : '${product.price}',
     );
-    _stockController = TextEditingController(
-      text: product == null ? '10' : '${product.stock}',
-    );
     _category = product?.category ?? _categories.first;
     _icon = product?.icon ?? _icons.first;
     _color = product?.color ?? _colors.first;
@@ -657,7 +592,6 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
-    _stockController.dispose();
     super.dispose();
   }
 
@@ -688,13 +622,13 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
           const SizedBox(height: 18),
           Text(
             widget.product == null ? 'Tambah menu baru' : 'Edit menu',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Lengkapi nama, kategori, harga, dan stok agar menu siap dipakai kasir.',
+            'Lengkapi nama, kategori, dan harga menu.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: SmartCashierTheme.onSurfaceVariant,
             ),
@@ -709,30 +643,13 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Harga',
-                    prefixIcon: Icon(Icons.payments_outlined),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _stockController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Stok',
-                    prefixIcon: Icon(Icons.inventory_2_outlined),
-                  ),
-                ),
-              ),
-            ],
+          TextField(
+            controller: _priceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Harga',
+              prefixIcon: Icon(Icons.payments_outlined),
+            ),
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
@@ -750,9 +667,9 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
           const SizedBox(height: 16),
           Text(
             'Tampilan kartu',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -797,7 +714,6 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   void _save() {
     final name = _nameController.text.trim();
     final price = int.tryParse(_priceController.text.trim()) ?? 0;
-    final stock = int.tryParse(_stockController.text.trim()) ?? 0;
 
     if (name.isEmpty || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -810,7 +726,6 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
       name: name,
       category: _category,
       price: price,
-      stock: stock,
       color: _color,
       icon: _icon,
     );
@@ -897,18 +812,32 @@ class OrderTile extends StatelessWidget {
   }
 }
 
-// ==================== ORDER DETAIL SCREEN ====================
 class OrderDetailScreen extends ConsumerWidget {
   const OrderDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final order = ref.watch(cashierOrdersProvider).first;
+    final orders = ref.watch(cashierOrdersProvider);
+    
+    if (orders.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Order Detail'),
+          leading: IconButton(
+            onPressed: () => context.go('/cashier'),
+            icon: const Icon(Icons.arrow_back),
+          ),
+        ),
+        body: const Center(child: Text('Tidak ada order')),
+      );
+    }
+
+    final order = orders.first;
     final isReady = order.status == OrderStatus.ready;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order ${order.id}'),
+        title: Text('Order ${order.orderNumber}'),
         leading: IconButton(
           onPressed: () => context.go('/cashier'),
           icon: const Icon(Icons.arrow_back),
@@ -934,7 +863,7 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          SectionCard(title: 'Kitchen notes', child: Text(order.note)),
+          SectionCard(title: 'Catatan', child: Text(order.note)),
         ],
       ),
       bottomNavigationBar: Padding(
@@ -943,27 +872,15 @@ class OrderDetailScreen extends ConsumerWidget {
           onPressed: isReady
               ? null
               : () {
-                  ref.read(cashierOrdersProvider.notifier).markSelectedReady();
+                  ref.read(cashierOrdersProvider.notifier).markOrderReady(order.id);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${order.id} is ready for pickup')),
+                    SnackBar(content: Text('${order.orderNumber} siap diambil')),
                   );
                 },
           icon: const Icon(Icons.done_all),
-          label: Text(isReady ? 'Already ready' : 'Ready for pickup'),
+          label: Text(isReady ? 'Sudah siap' : 'Tandai siap'),
         ),
       ),
     );
   }
 }
-
-// ==================== RE-EXPORT SHARED WIDGETS ====================
-// Widgets yang dibutuhkan dari user_home_screen.dart
-// (Comment ini sebagai reminder bahwa widgets berikut shared)
-// - SearchPanel
-// - CategoryChips  
-// - EmptyMenuResult
-// - SectionCard
-// - DetailRow
-// - OrderProgress
-// - OrderHeaderCard
-// - SmartCashierLogo

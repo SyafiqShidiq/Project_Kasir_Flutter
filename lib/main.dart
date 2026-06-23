@@ -215,127 +215,91 @@ extension AppRoleRoutes on AppRole {
 
 // ==================== PROVIDERS & MODELS ====================
 
-// ---- PRODUCTS ----
+// ---- PRODUCTS (REAL DATA FROM SUPABASE - TABEL menus) ----
 final productsProvider = NotifierProvider<ProductsController, List<Product>>(
   ProductsController.new,
 );
 
 class ProductsController extends Notifier<List<Product>> {
+  final _supabase = Supabase.instance.client;
+
   @override
-  List<Product> build() => const [
-    Product(
-      id: 'p1',
-      name: 'Crispy Chicken Bowl',
-      category: 'Meals',
-      price: 28000,
-      stock: 24,
-      color: Color(0xFFFFD7C2),
-      icon: Icons.rice_bowl,
-    ),
-    Product(
-      id: 'p2',
-      name: 'Beef Teriyaki',
-      category: 'Meals',
-      price: 36000,
-      stock: 18,
-      color: Color(0xFFDDE8D4),
-      icon: Icons.lunch_dining,
-    ),
-    Product(
-      id: 'p3',
-      name: 'Iced Matcha Latte',
-      category: 'Drinks',
-      price: 22000,
-      stock: 32,
-      color: Color(0xFFD9F1E2),
-      icon: Icons.local_cafe,
-    ),
-    Product(
-      id: 'p4',
-      name: 'Berry Soda',
-      category: 'Drinks',
-      price: 18000,
-      stock: 27,
-      color: Color(0xFFFFD5E5),
-      icon: Icons.local_drink,
-    ),
-    Product(
-      id: 'p5',
-      name: 'French Fries',
-      category: 'Snacks',
-      price: 17000,
-      stock: 8,
-      color: Color(0xFFFFEDB5),
-      icon: Icons.fastfood,
-    ),
-    Product(
-      id: 'p6',
-      name: 'Chocolate Waffle',
-      category: 'Dessert',
-      price: 25000,
-      stock: 0,
-      isAvailable: false,
-      color: Color(0xFFE7D4C5),
-      icon: Icons.bakery_dining,
-    ),
-  ];
-
-  void add(ProductDraft draft) {
-    final id = 'p${DateTime.now().microsecondsSinceEpoch}';
-    state = [
-      Product(
-        id: id,
-        name: draft.name,
-        category: draft.category,
-        price: draft.price,
-        stock: draft.stock,
-        color: draft.color,
-        icon: draft.icon,
-        isAvailable: draft.stock > 0,
-      ),
-      ...state,
-    ];
+  List<Product> build() {
+    _loadProducts();
+    return [];
   }
 
-  void update(String id, ProductDraft draft) {
-    state = [
-      for (final product in state)
-        if (product.id == id)
-          product.copyWith(
-            name: draft.name,
-            category: draft.category,
-            price: draft.price,
-            stock: draft.stock,
-            color: draft.color,
-            icon: draft.icon,
-            isAvailable: draft.stock > 0,
-          )
-        else
-          product,
-    ];
+  Future<void> _loadProducts() async {
+    try {
+      final data = await _supabase
+          .from('menus')
+          .select()
+          .order('created_at', ascending: false);
+
+      state = data.map<Product>((json) {
+        return Product.fromMenuJson(json);
+      }).toList();
+      
+      print('DEBUG: Loaded ${state.length} products from menus');
+    } catch (e) {
+      print('Error loading menus: $e');
+    }
   }
 
-  void toggleAvailability(Product product) {
-    state = [
-      for (final item in state)
-        if (item.id == product.id)
-          item.copyWith(isAvailable: !item.isAvailable)
-        else
-          item,
-    ];
+  Future<void> add(ProductDraft draft) async {
+    try {
+      await _supabase.from('menus').insert({
+        'name': draft.name,
+        'description': '${draft.category} menu',
+        'price': draft.price,
+        'category': draft.category,
+        'is_available': true,  // Default available pas pertama dibuat
+      });
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error adding menu: $e');
+      rethrow;
+    }
   }
 
-  void adjustStock(Product product, int delta) {
-    state = [
-      for (final item in state)
-        if (item.id == product.id)
-          item.copyWith(
-            stock: (item.stock + delta).clamp(0, 999),
-            isAvailable: item.stock + delta > 0,
-          )
-        else
-          item,
-    ];
+  Future<void> update(String id, ProductDraft draft) async {
+    try {
+      await _supabase.from('menus').update({
+        'name': draft.name,
+        'category': draft.category,
+        'price': draft.price,
+      }).eq('id', id);
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error updating menu: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> toggleAvailability(Product product) async {
+    try {
+      await _supabase.from('menus').update({
+        'is_available': !product.isAvailable,
+      }).eq('id', product.id);
+
+      await _loadProducts();
+    } catch (e) {
+      print('Error toggling availability: $e');
+      // Fallback: update state lokal
+      state = [
+        for (final item in state)
+          if (item.id == product.id)
+            item.copyWith(isAvailable: !item.isAvailable)
+          else
+            item,
+      ];
+    }
+  }
+
+  Future<void> refresh() async {
+    await _loadProducts();
   }
 }
 
@@ -481,100 +445,128 @@ final customerInfoProvider =
       CustomerInfoController.new,
     );
 
-// ---- CASHIER ORDERS ----
+// ---- CASHIER ORDERS (REAL DATA FROM SUPABASE) ----
 final cashierOrdersProvider =
     NotifierProvider<CashierOrdersController, List<CashierOrder>>(
       CashierOrdersController.new,
     );
 
 class CashierOrdersController extends Notifier<List<CashierOrder>> {
+  final _supabase = Supabase.instance.client;
+
   @override
-  List<CashierOrder> build() => const [
-    CashierOrder(
-      id: '#402',
-      customer: 'Dina',
-      status: OrderStatus.preparing,
-      total: 86000,
-      accent: Color(0xFFFFEDB5),
-      items: [
-        OrderItem(name: 'Crispy Chicken Bowl', quantity: 2, subtotal: 56000),
-        OrderItem(name: 'Iced Matcha Latte', quantity: 1, subtotal: 22000),
-      ],
-      note: 'No onion. Extra sauce on the side.',
-    ),
-    CashierOrder(
-      id: '#403',
-      customer: 'Rafi',
-      status: OrderStatus.ready,
-      total: 54000,
-      accent: Color(0xFFD9F1E2),
-      items: [
-        OrderItem(name: 'Beef Teriyaki', quantity: 1, subtotal: 36000),
-        OrderItem(name: 'Berry Soda', quantity: 1, subtotal: 18000),
-      ],
-      note: 'Take away.',
-    ),
-    CashierOrder(
-      id: '#404',
-      customer: 'Maya',
-      status: OrderStatus.paid,
-      total: 118000,
-      accent: Color(0xFFFFD5E5),
-      items: [
-        OrderItem(name: 'Chocolate Waffle', quantity: 2, subtotal: 50000),
-        OrderItem(name: 'French Fries', quantity: 4, subtotal: 68000),
-      ],
-      note: 'Serve drinks later.',
-    ),
-  ];
-
-  CashierOrder get selectedOrder => state.first;
-
-  void markSelectedReady() {
-    final order = selectedOrder;
-    state = [
-      for (final item in state)
-        if (item.id == order.id)
-          item.copyWith(status: OrderStatus.ready)
-        else
-          item,
-    ];
+  List<CashierOrder> build() {
+    _loadOrders();
+    return [];
   }
 
-  void addOrder({
+  Future<void> _loadOrders() async {
+    try {
+      final ordersData = await _supabase
+          .from('orders')
+          .select()
+          .order('created_at', ascending: false);
+
+      List<CashierOrder> orders = [];
+
+      for (final orderJson in ordersData) {
+        // Ambil items untuk setiap order
+        final itemsData = await _supabase
+            .from('order_items')
+            .select()
+            .eq('order_id', orderJson['id']);
+
+        final items = itemsData.map<OrderItem>((item) {
+          return OrderItem(
+            name: item['menu_id'] ?? '',  // Nanti bisa di-join dengan menus
+            quantity: item['quantity'] ?? 0,
+            subtotal: item['subtotal'] ?? 0,
+          );
+        }).toList();
+
+        orders.add(CashierOrder.fromOrderJson(orderJson, items));
+      }
+
+      print('DEBUG: Loaded ${orders.length} orders from database');
+      state = orders;
+    } catch (e) {
+      print('Error loading orders: $e');
+    }
+  }
+
+  CashierOrder get selectedOrder {
+    if (state.isEmpty) {
+      return CashierOrder.empty();
+    }
+    return state.first;
+  }
+
+  Future<void> markOrderReady(String orderId) async {
+    try {
+      await _supabase.from('orders').update({
+        'order_status': 'ready',
+      }).eq('id', orderId);
+
+      await _loadOrders();
+    } catch (e) {
+      print('Error updating order status: $e');
+    }
+  }
+
+  Future<void> addOrder({
     required String customer,
     required String note,
     required CartState cart,
-  }) {
-    final lastIdStr = state.isEmpty ? '401' : state.last.id.replaceAll('#', '');
-    final lastIdNum = int.tryParse(lastIdStr) ?? 401;
-    final newId = '#${lastIdNum + 1}';
+  }) async {
+    try {
+      print('=== ADDING ORDER ===');
+      print('Customer: $customer');
+      print('Note: $note');
+      print('Total: ${cart.total}');
 
-    final colors = [
-      const Color(0xFFFFEDB5),
-      const Color(0xFFD9F1E2),
-      const Color(0xFFFFD5E5),
-    ];
-    final accent = colors[state.length % colors.length];
+      // 1. Insert ke tabel orders
+      final orderNumber = 'ORD${DateTime.now().millisecondsSinceEpoch}';
+      final orderResponse = await _supabase.from('orders').insert({
+        'order_number': orderNumber,
+        'user_id': _supabase.auth.currentUser?.id,
+        'total_amount': cart.total,
+        'order_status': 'pending',
+        'payment_status': 'paid',
+        'payment_method': 'qris',
+        'table_number': note.contains('Meja') ? note.replaceAll('Meja ', '') : null,
+      }).select();
 
-    final newOrder = CashierOrder(
-      id: newId,
-      customer: customer,
-      status: OrderStatus.paid,
-      total: cart.total,
-      accent: accent,
-      items: [
-        for (final line in cart.lines)
-          OrderItem(
-            name: line.product.name,
-            quantity: line.quantity,
-            subtotal: line.subtotal,
-          ),
-      ],
-      note: note,
-    );
+      if (orderResponse.isEmpty) {
+        throw Exception('Gagal membuat order');
+      }
 
-    state = [...state, newOrder];
+      final orderId = orderResponse.first['id'];
+      print('Order created: $orderNumber (ID: $orderId)');
+
+      // 2. Insert ke tabel order_items
+      for (final line in cart.lines) {
+        await _supabase.from('order_items').insert({
+          'order_id': orderId,
+          'menu_id': line.product.id,
+          'quantity': line.quantity,
+          'price': line.product.price,
+          'subtotal': line.subtotal,
+        });
+        print('Item added: ${line.product.name} x${line.quantity}');
+      }
+
+      print('=== ORDER COMPLETED ===');
+
+      // 3. Refresh daftar order
+      await _loadOrders();
+    } catch (e) {
+      print('Error adding order: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> refresh() async {
+    await _loadOrders();
   }
 }
 
@@ -645,7 +637,6 @@ class Product {
     required this.name,
     required this.category,
     required this.price,
-    required this.stock,
     required this.color,
     required this.icon,
     this.isAvailable = true,
@@ -655,18 +646,14 @@ class Product {
   final String name;
   final String category;
   final int price;
-  final int stock;
   final Color color;
   final IconData icon;
   final bool isAvailable;
-
-  bool get isLowStock => stock > 0 && stock <= 10;
 
   Product copyWith({
     String? name,
     String? category,
     int? price,
-    int? stock,
     Color? color,
     IconData? icon,
     bool? isAvailable,
@@ -676,11 +663,40 @@ class Product {
       name: name ?? this.name,
       category: category ?? this.category,
       price: price ?? this.price,
-      stock: stock ?? this.stock,
       color: color ?? this.color,
       icon: icon ?? this.icon,
       isAvailable: isAvailable ?? this.isAvailable,
     );
+  }
+
+  factory Product.fromMenuJson(Map<String, dynamic> json) {
+    final categoryIcons = {
+      'Meals': Icons.rice_bowl,
+      'Drinks': Icons.local_cafe,
+      'Snacks': Icons.fastfood,
+      'Dessert': Icons.bakery_dining,
+    };
+
+    final categoryColors = {
+      'Meals': const Color(0xFFFFD7C2),
+      'Drinks': const Color(0xFFD9F1E2),
+      'Snacks': const Color(0xFFFFEDB5),
+      'Dessert': const Color(0xFFE7D4C5),
+    };
+
+    return Product(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      category: json['category'] ?? '',
+      price: json['price'] ?? 0,
+      color: categoryColors[json['category']] ?? const Color(0xFFFFD7C2),
+      icon: categoryIcons[json['category']] ?? Icons.restaurant_menu,
+      isAvailable: json['is_available'] ?? true,
+    );
+  }
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product.fromMenuJson(json);
   }
 }
 
@@ -689,7 +705,6 @@ class ProductDraft {
     required this.name,
     required this.category,
     required this.price,
-    required this.stock,
     required this.color,
     required this.icon,
   });
@@ -697,7 +712,6 @@ class ProductDraft {
   final String name;
   final String category;
   final int price;
-  final int stock;
   final Color color;
   final IconData icon;
 }
@@ -723,9 +737,11 @@ class CashierOrder {
     required this.accent,
     required this.items,
     required this.note,
+    required this.orderNumber,
   });
 
   final String id;
+  final String orderNumber;
   final String customer;
   final OrderStatus status;
   final int total;
@@ -736,6 +752,7 @@ class CashierOrder {
   CashierOrder copyWith({OrderStatus? status}) {
     return CashierOrder(
       id: id,
+      orderNumber: orderNumber,
       customer: customer,
       status: status ?? this.status,
       total: total,
@@ -744,8 +761,59 @@ class CashierOrder {
       note: note,
     );
   }
-}
 
+  factory CashierOrder.fromOrderJson(Map<String, dynamic> json, List<OrderItem> items) {
+    final statusColors = {
+      'pending': const Color(0xFFFFD5E5),
+      'preparing': const Color(0xFFFFEDB5),
+      'ready': const Color(0xFFD9F1E2),
+      'completed': const Color(0xFFE7D4C5),
+    };
+
+    // Ambil customer name dari user_id (nanti bisa di-join)
+    final tableNum = json['table_number'];
+    final note = tableNum != null ? 'Meja $tableNum' : 'Take away';
+
+    return CashierOrder(
+      id: json['id'] ?? '',
+      orderNumber: json['order_number'] ?? '',
+      customer: 'Customer', // Nanti bisa diganti dengan join ke users
+      status: _parseStatus(json['order_status']),
+      total: json['total_amount'] ?? 0,
+      accent: statusColors[json['order_status']] ?? const Color(0xFFFFEDB5),
+      items: items,
+      note: note,
+    );
+  }
+
+  static CashierOrder empty() {
+    return const CashierOrder(
+      id: '',
+      orderNumber: '',
+      customer: '',
+      status: OrderStatus.paid,
+      total: 0,
+      accent: Color(0xFFFFEDB5),
+      items: [],
+      note: '',
+    );
+  }
+
+  static OrderStatus _parseStatus(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return OrderStatus.paid;
+      case 'preparing':
+        return OrderStatus.preparing;
+      case 'ready':
+        return OrderStatus.ready;
+      case 'completed':
+        return OrderStatus.pickedUp;
+      default:
+        return OrderStatus.paid;
+    }
+  }
+}
 class CartLine {
   const CartLine({required this.product, required this.quantity});
 
