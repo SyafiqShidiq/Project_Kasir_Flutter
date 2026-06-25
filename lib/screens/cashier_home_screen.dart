@@ -5,6 +5,9 @@ import '../main.dart';
 import 'shared_widgets.dart';
 import '../providers/auth_provider.dart';
 
+import '../providers/menu_provider.dart';
+import '../models/menu_model.dart';
+
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
   const CashierHomeScreen({super.key});
@@ -174,70 +177,93 @@ class CashierMenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final products = ref.watch(filteredProductsProvider);
-    final allProducts = ref.watch(productsProvider);
-    final inactive = allProducts.where((item) => !item.isAvailable).length;
+    final menuAsync = ref.watch(menuListProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kelola Menu'),
-        actions: [
-          IconButton(
-            tooltip: 'Tambah menu',
-            onPressed: () => showMenuEditorSheet(context, ref),
-            icon: const Icon(Icons.add_circle_outline),
-          ),
-          const SizedBox(width: 8),
-        ],
+    return menuAsync.when(
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
-        children: [
-          CashierMenuHero(
-            totalMenu: allProducts.length,
-            activeMenu: allProducts.where((item) => item.isAvailable).length,
-            inactive: inactive,
+
+      error: (error, stackTrace) => Scaffold(
+        body: Center(
+          child: Text(
+            'Error: $error',
           ),
-          const SizedBox(height: 16),
-          const SearchPanel(),
-          const SizedBox(height: 14),
-          const CategoryChips(),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Daftar menu',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              TextButton.icon(
+        ),
+      ),
+
+      data: (allMenus) {
+        final inactive =
+            allMenus
+                .where(
+                  (menu) => !menu.isAvailable,
+                )
+                .length;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Kelola Menu'),
+            actions: [
+              IconButton(
+                tooltip: 'Tambah menu',
                 onPressed: () => showMenuEditorSheet(context, ref),
-                icon: const Icon(Icons.add),
-                label: const Text('Tambah'),
+                icon: const Icon(Icons.add_circle_outline),
               ),
+              const SizedBox(width: 8),
             ],
           ),
-          const SizedBox(height: 10),
-          if (products.isEmpty)
-            const EmptyMenuResult()
-          else
-            for (final product in products) ...[
-              CashierMenuTile(product: product),
-              const SizedBox(height: 12),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
+            children: [
+              CashierMenuHero(
+                totalMenu: allMenus.length,
+                activeMenu: allMenus.where((item) => item.isAvailable).length,
+                inactive: inactive,
+              ),
+              const SizedBox(height: 16),
+              const SearchPanel(),
+              const SizedBox(height: 14),
+              const CategoryChips(),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Daftar menu',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => showMenuEditorSheet(context, ref),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tambah'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (allMenus.isEmpty)
+                const EmptyMenuResult()
+              else
+                for (final menu in allMenus) ...[
+                  CashierMenuTile(menu: menu),
+                  const SizedBox(height: 12),
+                ],
             ],
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showMenuEditorSheet(context, ref),
-        backgroundColor: SmartCashierTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Menu baru'),
-      ),
-      bottomNavigationBar: const CashierNavigationBar(activeIndex: 1),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => showMenuEditorSheet(context, ref),
+            backgroundColor: SmartCashierTheme.primary,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add),
+            label: const Text('Menu baru'),
+          ),
+          bottomNavigationBar: const CashierNavigationBar(activeIndex: 1),
+        );
+      },
     );
   }
 }
@@ -424,16 +450,16 @@ class MenuHeroMetric extends StatelessWidget {
 
 // ==================== CASHIER MENU TILE ====================
 class CashierMenuTile extends ConsumerWidget {
-  const CashierMenuTile({super.key, required this.product});
+  const CashierMenuTile({super.key, required this.menu});
 
-  final Product product;
+  final MenuModel menu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = product.isAvailable
+    final statusColor = menu.isAvailable
         ? Colors.green.shade700
         : SmartCashierTheme.outline;
-    final statusText = product.isAvailable ? 'Tersedia' : 'Nonaktif';
+    final statusText = menu.isAvailable ? 'Tersedia' : 'Nonaktif';
 
     return Card(
       child: Padding(
@@ -444,11 +470,11 @@ class CashierMenuTile extends ConsumerWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: product.color,
+                color: const Color(0xFFD9F1E2),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
-                product.icon,
+                Icons.restaurant_menu,
                 color: SmartCashierTheme.primaryDark,
                 size: 30,
               ),
@@ -459,14 +485,14 @@ class CashierMenuTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product.name,
+                    menu.name,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${product.category} • ${product.price.rupiah}',
+                    '${menu.category} • ${menu.price.toInt().rupiah}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: SmartCashierTheme.onSurfaceVariant,
                     ),
@@ -478,18 +504,47 @@ class CashierMenuTile extends ConsumerWidget {
             ),
             // Toggle button
             Switch(
-              value: product.isAvailable,
+              value: menu.isAvailable,
               activeColor: Colors.green,
-              onChanged: (_) {
-                ref
-                    .read(productsProvider.notifier)
-                    .toggleAvailability(product);
+              onChanged: (value) async {
+                try {
+                  final menuService =
+                      ref.read(menuServiceProvider);
+
+                  await menuService.updateAvailability(
+                    id: menu.id,
+                    isAvailable: value,
+                  );
+
+                  ref.invalidate(
+                    menuListProvider,
+                  );
+
+                  ref.invalidate(
+                    availableMenuListProvider,
+                  );
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Gagal mengubah status menu: $e',
+                        ),
+                      ),
+                    );
+                  }
+                }
               },
             ),
             // Edit menu
             IconButton(
               tooltip: 'Edit menu',
-              onPressed: () => showMenuEditorSheet(context, ref, product: product),
+              onPressed: () => showMenuEditorSheet(
+                context,
+                ref,
+                menu: menu,
+              ),
               icon: const Icon(Icons.edit_outlined),
             ),
           ],
@@ -530,21 +585,21 @@ class MenuStatusChip extends StatelessWidget {
 Future<void> showMenuEditorSheet(
   BuildContext context,
   WidgetRef _, {
-  Product? product,
+  MenuModel? menu,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => MenuEditorSheet(product: product),
+    builder: (context) => MenuEditorSheet(menu: menu),
   );
 }
 
 class MenuEditorSheet extends ConsumerStatefulWidget {
-  const MenuEditorSheet({super.key, this.product});
+  const MenuEditorSheet({super.key, this.menu});
 
-  final Product? product;
+  final MenuModel? menu;
 
   @override
   ConsumerState<MenuEditorSheet> createState() => _MenuEditorSheetState();
@@ -578,14 +633,14 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   @override
   void initState() {
     super.initState();
-    final product = widget.product;
-    _nameController = TextEditingController(text: product?.name ?? '');
+    final menu = widget.menu;
+    _nameController = TextEditingController(text: menu?.name ?? '');
     _priceController = TextEditingController(
-      text: product == null ? '' : '${product.price}',
+      text: menu == null ? '' : '${menu.price}',
     );
-    _category = product?.category ?? _categories.first;
-    _icon = product?.icon ?? _icons.first;
-    _color = product?.color ?? _colors.first;
+    _category = menu?.category ?? _categories.first;
+    _icon = _icons.first;
+    _color = _colors.first;
   }
 
   @override
@@ -621,7 +676,7 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
           ),
           const SizedBox(height: 18),
           Text(
-            widget.product == null ? 'Tambah menu baru' : 'Edit menu',
+            widget.menu == null ? 'Tambah menu baru' : 'Edit menu',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w900,
             ),
@@ -703,7 +758,7 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
             onPressed: _save,
             icon: const Icon(Icons.save_outlined),
             label: Text(
-              widget.product == null ? 'Simpan menu' : 'Simpan perubahan',
+              widget.menu == null ? 'Simpan menu' : 'Simpan perubahan',
             ),
           ),
         ],
@@ -711,34 +766,81 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final name = _nameController.text.trim();
-    final price = int.tryParse(_priceController.text.trim()) ?? 0;
+    final price =
+        double.tryParse(
+          _priceController.text.trim(),
+        ) ??
+        0;
 
     if (name.isEmpty || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama dan harga menu wajib diisi.')),
+        const SnackBar(
+          content: Text(
+            'Nama dan harga menu wajib diisi.',
+          ),
+        ),
       );
       return;
     }
 
-    final draft = ProductDraft(
-      name: name,
-      category: _category,
-      price: price,
-      color: _color,
-      icon: _icon,
-    );
+    try {
+      final menuService =
+          ref.read(menuServiceProvider);
 
-    final product = widget.product;
-    final controller = ref.read(productsProvider.notifier);
-    if (product == null) {
-      controller.add(draft);
-    } else {
-      controller.update(product.id, draft);
+      if (widget.menu == null) {
+        await menuService.addMenu(
+          name: name,
+          description: null,
+          price: price,
+          category: _category,
+        );
+      } else {
+        await menuService.updateMenu(
+          id: widget.menu!.id,
+          name: name,
+          description: widget.menu!.description,
+          price: price,
+          category: _category,
+          imageUrl: widget.menu!.imageUrl,
+          isAvailable:
+              widget.menu!.isAvailable,
+        );
+      }
+
+      ref.invalidate(
+        menuListProvider,
+      );
+
+      ref.invalidate(
+        availableMenuListProvider,
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.menu == null
+                ? 'Menu berhasil ditambahkan'
+                : 'Menu berhasil diperbarui',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal menambah menu: $e',
+          ),
+        ),
+      );
     }
-
-    Navigator.of(context).pop();
   }
 }
 

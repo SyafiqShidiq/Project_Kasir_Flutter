@@ -27,3 +27,9 @@ final availableMenuListProvider =
     return menuService.getAvailableMenus();
   },
 );
+final filteredMenuListProvider =
+    Provider<AsyncValue<List<MenuModel>>>(
+  (ref) {
+    return ref.watch(menuListProvider);
+  },
+);
