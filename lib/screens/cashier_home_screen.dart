@@ -6,6 +6,7 @@ import 'shared_widgets.dart';
 import '../providers/auth_provider.dart';
 
 import '../providers/menu_provider.dart';
+import '../providers/order_provider.dart';
 import '../models/menu_model.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
@@ -109,7 +110,7 @@ class CashierHomeScreen extends ConsumerWidget {
     // Refresh produk
     await ref.read(productsProvider.notifier).refresh();
     // Refresh order
-    await ref.read(cashierOrdersProvider.notifier).refresh();
+    await ref.read(orderProvider.notifier).refresh();
     
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -974,7 +975,7 @@ class OrderDetailScreen extends ConsumerWidget {
           onPressed: isReady
               ? null
               : () {
-                  ref.read(cashierOrdersProvider.notifier).markOrderReady(order.id);
+                  ref.read(orderProvider.notifier).markOrderReady(order.id);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('${order.orderNumber} siap diambil')),
                   );

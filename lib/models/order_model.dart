@@ -58,6 +58,31 @@ class CashierOrder {
     required this.items,
     required this.note,
   });
+  factory CashierOrder.fromOrderJson({
+    required Map<String, dynamic> orderJson,
+    required List<OrderItem> items,
+  }) {
+    final table = orderJson['table_number'];
+
+    return CashierOrder(
+      id: orderJson['id'] ?? '',
+      orderNumber: orderJson['order_number'] ?? '',
+      customer: table == null
+          ? 'Customer'
+          : 'Meja $table',
+      status: CashierOrder.parseStatus(
+        orderJson['order_status'],
+      ),
+      total: orderJson['total_amount'] ?? 0,
+      accent: _statusColor(
+        orderJson['order_status'],
+      ),
+      items: items,
+      note: table == null
+          ? 'Take Away'
+          : 'Meja $table',
+    );
+  }
 
   final String id;
   final String orderNumber;
@@ -115,5 +140,25 @@ class CashierOrder {
       items: [],
       note: '',
     );
+  }
+  static Color _statusColor(
+    String? status,
+  ) {
+    switch (status) {
+      case 'pending':
+        return const Color(0xFFFFD5E5);
+
+      case 'preparing':
+        return const Color(0xFFFFEDB5);
+
+      case 'ready':
+        return const Color(0xFFD9F1E2);
+
+      case 'completed':
+        return const Color(0xFFE7D4C5);
+
+      default:
+        return const Color(0xFFFFEDB5);
+    }
   }
 }

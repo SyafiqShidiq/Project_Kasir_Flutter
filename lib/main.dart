@@ -8,9 +8,11 @@ import 'screens/auth_gate.dart';
 import 'screens/user_home_screen.dart';
 import 'screens/cashier_home_screen.dart';
 import 'models/app_role.dart';
+import 'models/order_model.dart';
+import 'models/menu_model.dart';
 import '../screens/register_screen.dart';
 
-import '../screens/menu_test_page.dart';
+import 'models/product_draft.dart';
 
 // ==================== MAIN ====================
 Future<void> main() async {
@@ -698,22 +700,6 @@ class Product {
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product.fromMenuJson(json);
   }
-}
-
-class ProductDraft {
-  const ProductDraft({
-    required this.name,
-    required this.category,
-    required this.price,
-    required this.color,
-    required this.icon,
-  });
-
-  final String name;
-  final String category;
-  final int price;
-  final Color color;
-  final IconData icon;
 }
 
 class OrderItem {
