@@ -9,8 +9,10 @@ import 'screens/user_home_screen.dart';
 import 'screens/cashier_home_screen.dart';
 import 'models/app_role.dart';
 import 'models/order_model.dart';
+import 'models/cart_model.dart';
 import 'models/menu_model.dart';
 import '../screens/register_screen.dart';
+import 'providers/menu_filter_provider.dart';
 
 import 'models/product_draft.dart';
 
@@ -306,23 +308,6 @@ class ProductsController extends Notifier<List<Product>> {
 }
 
 // ---- MENU FILTER ----
-final menuFilterProvider = NotifierProvider<MenuFilterController, MenuFilter>(
-  MenuFilterController.new,
-);
-
-class MenuFilterController extends Notifier<MenuFilter> {
-  @override
-  MenuFilter build() => const MenuFilter();
-
-  void search(String query) {
-    state = state.copyWith(query: query);
-  }
-
-  void selectCategory(String category) {
-    state = state.copyWith(category: category);
-  }
-}
-
 final filteredProductsProvider = Provider<List<Product>>((ref) {
   final products = ref.watch(productsProvider);
   final filter = ref.watch(menuFilterProvider);
@@ -350,7 +335,7 @@ class CartController extends Notifier<CartState> {
   @override
   CartState build() => const CartState(lines: []);
 
-  void add(Product product) {
+  void add(MenuModel product) {
     final existing = state.lines.where((line) => line.product.id == product.id);
     if (existing.isEmpty) {
       state = state.copyWith(
@@ -373,7 +358,7 @@ class CartController extends Notifier<CartState> {
     );
   }
 
-  void decrease(Product product) {
+  void decrease(MenuModel product) {
     state = state.copyWith(
       lines: [
         for (final line in state.lines)
@@ -385,7 +370,7 @@ class CartController extends Notifier<CartState> {
     );
   }
 
-  void remove(Product product) {
+  void remove(MenuModel product) {
     state = state.copyWith(
       lines: [
         for (final line in state.lines)
@@ -573,22 +558,6 @@ class CashierOrdersController extends Notifier<List<CashierOrder>> {
 }
 
 // ==================== MODELS ====================
-
-class MenuFilter {
-  const MenuFilter({this.query = '', this.category = allCategory});
-
-  static const allCategory = 'All';
-
-  final String query;
-  final String category;
-
-  MenuFilter copyWith({String? query, String? category}) {
-    return MenuFilter(
-      query: query ?? this.query,
-      category: category ?? this.category,
-    );
-  }
-}
 
 enum PaymentMethod { qris, cash }
 
@@ -800,20 +769,20 @@ class CashierOrder {
     }
   }
 }
-class CartLine {
-  const CartLine({required this.product, required this.quantity});
+class LegacyCartLine {
+  const LegacyCartLine({required this.product, required this.quantity});
 
   final Product product;
   final int quantity;
   int get subtotal => product.price * quantity;
 
-  CartLine copyWith({int? quantity}) {
-    return CartLine(product: product, quantity: quantity ?? this.quantity);
+  LegacyCartLine copyWith({int? quantity}) {
+    return LegacyCartLine(product: product, quantity: quantity ?? this.quantity);
   }
 }
 
-class CartState {
-  const CartState({required this.lines});
+class LegacyCartState {
+  const LegacyCartState({required this.lines});
 
   final List<CartLine> lines;
   int get itemCount => lines.fold(0, (total, line) => total + line.quantity);
@@ -822,8 +791,8 @@ class CartState {
   int get service => itemCount == 0 ? 0 : 4000;
   int get total => subtotal + tax + service;
 
-  CartState copyWith({List<CartLine>? lines}) {
-    return CartState(lines: lines ?? this.lines);
+  LegacyCartState copyWith({List<CartLine>? lines}) {
+    return LegacyCartState(lines: lines ?? this.lines);
   }
 }
 

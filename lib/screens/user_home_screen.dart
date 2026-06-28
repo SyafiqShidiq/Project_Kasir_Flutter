@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:project_kasir_flutter/models/menu_model.dart';
 import '../main.dart';
 import '../providers/auth_provider.dart';
+import '../models/cart_model.dart';
+import '../models/menu_model.dart';
+import '../extensions/menu_ui_extension.dart';
+import '../providers/menu_provider.dart';
+import '../providers/menu_filter_provider.dart';
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -10,7 +16,7 @@ class UserHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final products = ref.watch(filteredProductsProvider);
+    final products = ref.watch(filteredMenusProvider);
     final cart = ref.watch(cartProvider);
 
     return Scaffold(
@@ -156,7 +162,7 @@ class CustomerNavigationBar extends StatelessWidget {
 class ResponsiveProductGrid extends StatelessWidget {
   const ResponsiveProductGrid({super.key, required this.products});
 
-  final List<Product> products;
+  final List<MenuModel> products;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +191,7 @@ class ResponsiveProductGrid extends StatelessWidget {
 class ProductCard extends ConsumerWidget {
   const ProductCard({super.key, required this.product});
 
-  final Product product;
+  final MenuModel product;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -233,7 +239,7 @@ class ProductCard extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            product.price.rupiah,
+                            product.price.toInt().rupiah,
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: SmartCashierTheme.primaryDark,
@@ -627,7 +633,7 @@ class CartMenuPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(filteredMenusProvider);
 
     return SectionCard(
       title: title,
@@ -647,7 +653,7 @@ class CartMenuPicker extends ConsumerWidget {
 class SuggestedProductTile extends ConsumerWidget {
   const SuggestedProductTile({super.key, required this.product});
 
-  final Product product;
+  final MenuModel product;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -659,7 +665,7 @@ class SuggestedProductTile extends ConsumerWidget {
         child: Icon(product.icon),
       ),
       title: Text(product.name),
-      subtitle: Text('${product.category} - ${product.price.rupiah}'),
+      subtitle: Text('${product.category} - ${product.price.toInt().rupiah}'),
       trailing: IconButton.filled(
         tooltip: 'Tambah ${product.name}',
         onPressed: () => ref.read(cartProvider.notifier).add(product),

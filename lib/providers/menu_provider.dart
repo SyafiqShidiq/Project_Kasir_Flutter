@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/menu_model.dart';
 import '../services/menu_service.dart';
 import '../models/product_draft.dart';
+import 'menu_filter_provider.dart';
 
 final menuServiceProvider =
     Provider<MenuService>(
@@ -41,6 +42,27 @@ final filteredMenuListProvider =
     return ref.watch(menuListProvider);
   },
 );
+
+final filteredMenusProvider = Provider<List<MenuModel>>((ref) {
+  final menusAsync = ref.watch(menuListProvider);
+  final filter = ref.watch(menuFilterProvider);
+
+  final menus = menusAsync.value ?? [];
+  final query = filter.query.trim().toLowerCase();
+
+  return menus.where((menu) {
+    final matchesCategory =
+        filter.category == MenuFilter.allCategory ||
+        menu.category == filter.category;
+
+    final matchesQuery =
+        query.isEmpty ||
+        menu.name.toLowerCase().contains(query) ||
+        menu.category.toLowerCase().contains(query);
+
+    return matchesCategory && matchesQuery;
+  }).toList();
+});
 
 class MenuController
     extends AsyncNotifier<List<MenuModel>> {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/menu_model.dart';
 
-extension MenuPresentation on MenuModel {
+extension MenuUiExtension on MenuModel {
   Color get color {
     switch (category) {
       case 'Meals':
