@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class ProductDraft {
-  const ProductDraft({
+class MenuDraft {
+  const MenuDraft({
     required this.name,
     required this.category,
     required this.price,

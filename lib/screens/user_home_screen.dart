@@ -180,7 +180,7 @@ class ResponsiveProductGrid extends StatelessWidget {
             childAspectRatio: 0.72,
           ),
           itemBuilder: (context, index) =>
-              ProductCard(product: products[index]),
+              MenuCard(menu: products[index]),
         );
       },
     );
@@ -188,26 +188,26 @@ class ResponsiveProductGrid extends StatelessWidget {
 }
 
 // ==================== PRODUCT CARD ====================
-class ProductCard extends ConsumerWidget {
-  const ProductCard({super.key, required this.product});
+class MenuCard extends ConsumerWidget {
+  const MenuCard({super.key, required this.menu});
 
-  final MenuModel product;
+  final MenuModel menu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => ref.read(cartProvider.notifier).add(product),
+        onTap: () => ref.read(cartProvider.notifier).add(menu),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
               aspectRatio: 4 / 3,
               child: Container(
-                color: product.color,
+                color: menu.color,
                 child: Icon(
-                  product.icon,
+                  menu.icon,
                   color: SmartCashierTheme.primaryDark,
                   size: 42,
                 ),
@@ -220,7 +220,7 @@ class ProductCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      product.name,
+                      menu.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -229,7 +229,7 @@ class ProductCard extends ConsumerWidget {
                     ),
                     const Spacer(),
                     Text(
-                      product.category,
+                      menu.category,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: SmartCashierTheme.onSurfaceVariant,
                       ),
@@ -239,7 +239,7 @@ class ProductCard extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            product.price.toInt().rupiah,
+                            menu.price.toInt().rupiah,
                             style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
                                   color: SmartCashierTheme.primaryDark,
@@ -640,7 +640,7 @@ class CartMenuPicker extends ConsumerWidget {
       child: Column(
         children: [
           for (final product in products) ...[
-            SuggestedProductTile(product: product),
+            SuggestedMenuTile(menu: product),
             if (product != products.last) const Divider(height: 18),
           ],
         ],
@@ -650,25 +650,25 @@ class CartMenuPicker extends ConsumerWidget {
 }
 
 // ==================== SUGGESTED PRODUCT TILE ====================
-class SuggestedProductTile extends ConsumerWidget {
-  const SuggestedProductTile({super.key, required this.product});
+class SuggestedMenuTile extends ConsumerWidget {
+  const SuggestedMenuTile({super.key, required this.menu});
 
-  final MenuModel product;
+  final MenuModel menu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
-        backgroundColor: product.color,
+        backgroundColor: menu.color,
         foregroundColor: SmartCashierTheme.primaryDark,
-        child: Icon(product.icon),
+        child: Icon(menu.icon),
       ),
-      title: Text(product.name),
-      subtitle: Text('${product.category} - ${product.price.toInt().rupiah}'),
+      title: Text(menu.name),
+      subtitle: Text('${menu.category} - ${menu.price.toInt().rupiah}'),
       trailing: IconButton.filled(
-        tooltip: 'Tambah ${product.name}',
-        onPressed: () => ref.read(cartProvider.notifier).add(product),
+        tooltip: 'Tambah ${menu.name}',
+        onPressed: () => ref.read(cartProvider.notifier).add(menu),
         icon: const Icon(Icons.add),
       ),
     );

@@ -73,7 +73,7 @@ class CashierOrder {
       status: CashierOrder.parseStatus(
         orderJson['order_status'],
       ),
-      total: orderJson['total_amount'] ?? 0,
+      total: (orderJson['total_amount'] as num?)?.toInt() ?? 0,
       accent: _statusColor(
         orderJson['order_status'],
       ),

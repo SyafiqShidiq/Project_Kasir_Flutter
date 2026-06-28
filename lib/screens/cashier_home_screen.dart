@@ -16,7 +16,7 @@ class CashierHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orders = ref.watch(cashierOrdersProvider);
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(menuProvider).value ?? [];
     final activeProducts = products.where((item) => item.isAvailable).length;
 
     return Scaffold(
@@ -108,7 +108,7 @@ class CashierHomeScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
   onPressed: () async {
     // Refresh produk
-    await ref.read(productsProvider.notifier).refresh();
+    await ref.read(menuProvider.notifier).refresh();
     // Refresh order
     await ref.read(orderProvider.notifier).refresh();
     
@@ -178,7 +178,7 @@ class CashierMenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menuAsync = ref.watch(menuListProvider);
+    final menuAsync = ref.watch(menuProvider);
 
     return menuAsync.when(
       loading: () => const Scaffold(

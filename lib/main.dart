@@ -219,113 +219,6 @@ extension AppRoleRoutes on AppRole {
 
 // ==================== PROVIDERS & MODELS ====================
 
-// ---- PRODUCTS (REAL DATA FROM SUPABASE - TABEL menus) ----
-final productsProvider = NotifierProvider<ProductsController, List<Product>>(
-  ProductsController.new,
-);
-
-class ProductsController extends Notifier<List<Product>> {
-  final _supabase = Supabase.instance.client;
-
-  @override
-  List<Product> build() {
-    _loadProducts();
-    return [];
-  }
-
-  Future<void> _loadProducts() async {
-    try {
-      final data = await _supabase
-          .from('menus')
-          .select()
-          .order('created_at', ascending: false);
-
-      state = data.map<Product>((json) {
-        return Product.fromMenuJson(json);
-      }).toList();
-      
-      print('DEBUG: Loaded ${state.length} products from menus');
-    } catch (e) {
-      print('Error loading menus: $e');
-    }
-  }
-
-  Future<void> add(ProductDraft draft) async {
-    try {
-      await _supabase.from('menus').insert({
-        'name': draft.name,
-        'description': '${draft.category} menu',
-        'price': draft.price,
-        'category': draft.category,
-        'is_available': true,  // Default available pas pertama dibuat
-      });
-
-      await _loadProducts();
-    } catch (e) {
-      print('Error adding menu: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> update(String id, ProductDraft draft) async {
-    try {
-      await _supabase.from('menus').update({
-        'name': draft.name,
-        'category': draft.category,
-        'price': draft.price,
-      }).eq('id', id);
-
-      await _loadProducts();
-    } catch (e) {
-      print('Error updating menu: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> toggleAvailability(Product product) async {
-    try {
-      await _supabase.from('menus').update({
-        'is_available': !product.isAvailable,
-      }).eq('id', product.id);
-
-      await _loadProducts();
-    } catch (e) {
-      print('Error toggling availability: $e');
-      // Fallback: update state lokal
-      state = [
-        for (final item in state)
-          if (item.id == product.id)
-            item.copyWith(isAvailable: !item.isAvailable)
-          else
-            item,
-      ];
-    }
-  }
-
-  Future<void> refresh() async {
-    await _loadProducts();
-  }
-}
-
-// ---- MENU FILTER ----
-final filteredProductsProvider = Provider<List<Product>>((ref) {
-  final products = ref.watch(productsProvider);
-  final filter = ref.watch(menuFilterProvider);
-  final query = filter.query.trim().toLowerCase();
-
-  return products.where((product) {
-    final matchesCategory =
-        filter.category == MenuFilter.allCategory ||
-        product.category == filter.category;
-    final matchesQuery =
-        query.isEmpty ||
-        product.name.toLowerCase().contains(query) ||
-        product.category.toLowerCase().contains(query);
-
-    return matchesCategory && matchesQuery;
-  }).toList();
-});
-
 // ---- CART ----
 final cartProvider = NotifierProvider<CartController, CartState>(
   CartController.new,
@@ -466,8 +359,8 @@ class CashierOrdersController extends Notifier<List<CashierOrder>> {
         final items = itemsData.map<OrderItem>((item) {
           return OrderItem(
             name: item['menu_id'] ?? '',  // Nanti bisa di-join dengan menus
-            quantity: item['quantity'] ?? 0,
-            subtotal: item['subtotal'] ?? 0,
+            quantity: (item['quantity'] as num?)?.toInt() ?? 0,
+            subtotal: (item['subtotal'] as num?)?.toInt() ?? 0,
           );
         }).toList();
 
@@ -602,75 +495,6 @@ extension OrderStatusText on OrderStatus {
   }
 }
 
-class Product {
-  const Product({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.price,
-    required this.color,
-    required this.icon,
-    this.isAvailable = true,
-  });
-
-  final String id;
-  final String name;
-  final String category;
-  final int price;
-  final Color color;
-  final IconData icon;
-  final bool isAvailable;
-
-  Product copyWith({
-    String? name,
-    String? category,
-    int? price,
-    Color? color,
-    IconData? icon,
-    bool? isAvailable,
-  }) {
-    return Product(
-      id: id,
-      name: name ?? this.name,
-      category: category ?? this.category,
-      price: price ?? this.price,
-      color: color ?? this.color,
-      icon: icon ?? this.icon,
-      isAvailable: isAvailable ?? this.isAvailable,
-    );
-  }
-
-  factory Product.fromMenuJson(Map<String, dynamic> json) {
-    final categoryIcons = {
-      'Meals': Icons.rice_bowl,
-      'Drinks': Icons.local_cafe,
-      'Snacks': Icons.fastfood,
-      'Dessert': Icons.bakery_dining,
-    };
-
-    final categoryColors = {
-      'Meals': const Color(0xFFFFD7C2),
-      'Drinks': const Color(0xFFD9F1E2),
-      'Snacks': const Color(0xFFFFEDB5),
-      'Dessert': const Color(0xFFE7D4C5),
-    };
-
-    return Product(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      category: json['category'] ?? '',
-      price: json['price'] ?? 0,
-      color: categoryColors[json['category']] ?? const Color(0xFFFFD7C2),
-      icon: categoryIcons[json['category']] ?? Icons.restaurant_menu,
-      isAvailable: json['is_available'] ?? true,
-    );
-  }
-
-  factory Product.fromJson(Map<String, dynamic> json) {
-    return Product.fromMenuJson(json);
-  }
-}
-
 class OrderItem {
   const OrderItem({
     required this.name,
@@ -734,7 +558,7 @@ class CashierOrder {
       orderNumber: json['order_number'] ?? '',
       customer: 'Customer', // Nanti bisa diganti dengan join ke users
       status: _parseStatus(json['order_status']),
-      total: json['total_amount'] ?? 0,
+      total: (json['total_amount'] as num?)?.toInt() ?? 0,
       accent: statusColors[json['order_status']] ?? const Color(0xFFFFEDB5),
       items: items,
       note: note,
@@ -767,17 +591,6 @@ class CashierOrder {
       default:
         return OrderStatus.paid;
     }
-  }
-}
-class LegacyCartLine {
-  const LegacyCartLine({required this.product, required this.quantity});
-
-  final Product product;
-  final int quantity;
-  int get subtotal => product.price * quantity;
-
-  LegacyCartLine copyWith({int? quantity}) {
-    return LegacyCartLine(product: product, quantity: quantity ?? this.quantity);
   }
 }
 

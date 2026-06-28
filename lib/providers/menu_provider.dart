@@ -44,10 +44,8 @@ final filteredMenuListProvider =
 );
 
 final filteredMenusProvider = Provider<List<MenuModel>>((ref) {
-  final menusAsync = ref.watch(menuListProvider);
+  final menus = ref.watch(menuProvider).value ?? [];
   final filter = ref.watch(menuFilterProvider);
-
-  final menus = menusAsync.value ?? [];
   final query = filter.query.trim().toLowerCase();
 
   return menus.where((menu) {
@@ -84,7 +82,7 @@ class MenuController
     );
   }
 
-  Future<void> add(ProductDraft draft) async {
+  Future<void> add(MenuDraft draft) async {
     await _service.addMenu(
       name: draft.name,
       description: '${draft.category} menu',
@@ -97,7 +95,7 @@ class MenuController
 
   Future<void> updateMenu(
     String id,
-    ProductDraft draft,
+    MenuDraft draft,
   ) async {
     await _service.updateMenu(
       id: id,
