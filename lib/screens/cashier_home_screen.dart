@@ -904,7 +904,7 @@ class OrderTile extends StatelessWidget {
           foregroundColor: SmartCashierTheme.primaryDark,
           child: const Icon(Icons.receipt_long),
         ),
-        title: Text('${order.id} - ${order.customer}'),
+        title: Text('${order.orderNumber} - ${order.customer}'),
         subtitle: Text(order.status.label),
         trailing: Text(
           order.total.rupiah,
