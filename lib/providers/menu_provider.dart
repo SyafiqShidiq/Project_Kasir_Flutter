@@ -49,6 +49,9 @@ final filteredMenusProvider = Provider<List<MenuModel>>((ref) {
   final query = filter.query.trim().toLowerCase();
 
   return menus.where((menu) {
+    // HANYA TAMPILKAN YANG AVAILABLE
+    if (!menu.isAvailable) return false;
+
     final matchesCategory =
         filter.category == MenuFilter.allCategory ||
         menu.category == filter.category;
