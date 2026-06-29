@@ -4,6 +4,37 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 
+class _AuthPalette {
+  const _AuthPalette({
+    required this.primary,
+    required this.soft,
+    required this.backgroundTop,
+    required this.backgroundBottom,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final Color primary;
+  final Color soft;
+  final Color backgroundTop;
+  final Color backgroundBottom;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  static const user = _AuthPalette(
+    primary: Color(0xFFD32F2F),
+    soft: Color(0xFFFFEBEE),
+    backgroundTop: Color(0xFFFFF2F0),
+    backgroundBottom: Color(0xFFFFFFFF),
+    icon: Icons.restaurant_menu,
+    title: 'Akun User & Kasir',
+    subtitle:
+        'Masuk dengan akun terdaftar, sistem akan membuka halaman sesuai role.',
+  );
+}
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,6 +49,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  _AuthPalette get _palette => _AuthPalette.user;
 
   @override
   void dispose() {
@@ -46,6 +79,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
+      ref.invalidate(currentUserProvider);
+      ref.invalidate(userRoleProvider);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Login berhasil!'),
@@ -57,9 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       );
 
-      // PERUBAHAN: Ganti '/home' menjadi '/user-home'
       context.go('/');
-      
     } catch (e) {
       if (!mounted) return;
 
@@ -84,16 +118,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _palette;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFF5E6D3), // Coklat muda
-              Color(0xFFFFFFFF), // Putih
-            ],
+            colors: [palette.backgroundTop, palette.backgroundBottom],
           ),
         ),
         child: SafeArea(
@@ -102,7 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.all(24),
               child: Card(
                 elevation: 20,
-                shadowColor: Colors.black.withOpacity(0.1),
+                shadowColor: palette.primary.withValues(alpha: 0.14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
@@ -119,20 +152,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: Colors.brown.shade100,
+                            color: palette.soft,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.brown.withOpacity(0.2),
+                                color: palette.primary.withValues(alpha: 0.20),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               ),
                             ],
                           ),
                           child: Icon(
-                            Icons.coffee,
+                            palette.icon,
                             size: 50,
-                            color: Colors.brown.shade700,
+                            color: palette.primary,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -143,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Colors.brown.shade800,
+                            color: palette.primary,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -156,6 +189,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 22),
+                        _RoleHintCard(palette: palette),
                         const SizedBox(height: 32),
 
                         // Email Field
@@ -166,16 +201,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: 'Email',
                             hintText: 'contoh@email.com',
-                            prefixIcon: const Icon(Icons.email_outlined),
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: palette.primary,
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
                             fillColor: Colors.grey.shade50,
-                            labelStyle: TextStyle(
-                              color: Colors.grey.shade700,
-                            ),
+                            labelStyle: TextStyle(color: Colors.grey.shade700),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -197,12 +233,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: 'Password',
                             hintText: 'Masukkan password',
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: Icon(
+                              Icons.lock_outline,
+                              color: palette.primary,
+                            ),
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
+                                color: palette.primary,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -216,9 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             filled: true,
                             fillColor: Colors.grey.shade50,
-                            labelStyle: TextStyle(
-                              color: Colors.grey.shade700,
-                            ),
+                            labelStyle: TextStyle(color: Colors.grey.shade700),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -238,7 +276,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _login,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8B5E3C),
+                              backgroundColor: palette.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(15),
@@ -271,16 +309,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           children: [
                             Text(
                               'Belum punya akun?',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                              ),
+                              style: TextStyle(color: Colors.grey.shade600),
                             ),
                             TextButton(
                               onPressed: () {
                                 context.push('/register');
                               },
                               style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF8B5E3C),
+                                foregroundColor: palette.primary,
                               ),
                               child: const Text(
                                 'Daftar Sekarang',
@@ -300,6 +336,109 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RoleHintCard extends StatelessWidget {
+  const _RoleHintCard({required this.palette});
+
+  final _AuthPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.soft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.primary.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white,
+            foregroundColor: palette.primary,
+            child: Icon(palette.icon, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  palette.title,
+                  style: TextStyle(
+                    color: palette.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  palette.subtitle,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const _RoleBadges(),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleBadges extends StatelessWidget {
+  const _RoleBadges();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _RoleBadge(label: 'User', icon: Icons.person_outline),
+        SizedBox(height: 6),
+        _RoleBadge(label: 'Kasir', icon: Icons.point_of_sale),
+      ],
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFFD32F2F).withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: const Color(0xFFD32F2F)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFD32F2F),
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }

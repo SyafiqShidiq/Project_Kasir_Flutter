@@ -5,6 +5,12 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 
+class _RegisterPalette {
+  static const userPrimary = Color(0xFFD32F2F);
+  static const userSoft = Color(0xFFFFEBEE);
+  static const userBackground = Color(0xFFFFF2F0);
+}
+
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -122,18 +128,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
       // Navigasi ke login setelah 1.5 detik
       Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        context.go('/');
-      }
-    });
+        if (mounted) {
+          context.go('/');
+        }
+      });
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -152,10 +155,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFF5E6D3), // Coklat muda
-              Color(0xFFFFFFFF), // Putih
-            ],
+            colors: [_RegisterPalette.userBackground, Color(0xFFFFFFFF)],
           ),
         ),
         child: SafeArea(
@@ -170,13 +170,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   width: 90,
                   height: 90,
                   decoration: BoxDecoration(
-                    color: Colors.brown.shade100,
+                    color: _RegisterPalette.userSoft,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _RegisterPalette.userPrimary.withValues(
+                          alpha: 0.18,
+                        ),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: const Icon(
-                    Icons.coffee,
+                    Icons.person_add_alt_1,
                     size: 45,
-                    color: Colors.brown,
+                    color: _RegisterPalette.userPrimary,
                   ),
                 ),
 
@@ -188,21 +197,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   style: GoogleFonts.poppins(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.brown.shade800,
+                    color: _RegisterPalette.userPrimary,
                   ),
                 ),
 
                 const SizedBox(height: 8),
 
                 Text(
-                  "Daftar untuk mulai memesan",
+                  "Daftar sebagai user untuk mulai memesan",
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.grey.shade600,
                   ),
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
 
                 // Form Card
                 Container(
@@ -212,7 +221,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -226,7 +235,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         decoration: InputDecoration(
                           labelText: 'Username',
                           hintText: 'Masukkan username',
-                          prefixIcon: const Icon(Icons.person_outline),
+                          prefixIcon: const Icon(
+                            Icons.person_outline,
+                            color: _RegisterPalette.userPrimary,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -249,7 +261,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         decoration: InputDecoration(
                           labelText: 'Email',
                           hintText: 'contoh@email.com',
-                          prefixIcon: const Icon(Icons.email_outlined),
+                          prefixIcon: const Icon(
+                            Icons.email_outlined,
+                            color: _RegisterPalette.userPrimary,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -272,13 +287,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         decoration: InputDecoration(
                           labelText: 'Password',
                           hintText: 'Minimal 6 karakter',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: _RegisterPalette.userPrimary,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_off
                                   : Icons.visibility,
-                              color: Colors.grey.shade500,
+                              color: _RegisterPalette.userPrimary,
                             ),
                             onPressed: () {
                               setState(() {
@@ -308,17 +326,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         decoration: InputDecoration(
                           labelText: 'Konfirmasi Password',
                           hintText: 'Ketik ulang password',
-                          prefixIcon: const Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: _RegisterPalette.userPrimary,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirmPassword
                                   ? Icons.visibility_off
                                   : Icons.visibility,
-                              color: Colors.grey.shade500,
+                              color: _RegisterPalette.userPrimary,
                             ),
                             onPressed: () {
                               setState(() {
-                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
                               });
                             },
                           ),
@@ -344,7 +366,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _register,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B5E3C),
+                            backgroundColor: _RegisterPalette.userPrimary,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -389,7 +411,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             child: Text(
                               "Masuk",
                               style: GoogleFonts.poppins(
-                                color: const Color(0xFF8B5E3C),
+                                color: _RegisterPalette.userPrimary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
