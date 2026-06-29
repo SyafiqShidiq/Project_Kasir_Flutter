@@ -413,7 +413,7 @@ class CashierOrdersController extends Notifier<List<CashierOrder>> {
         'order_status': 'pending',
         'payment_status': 'paid',
         'payment_method': 'qris',
-        'table_number': note.contains('Meja') ? note.replaceAll('Meja ', '') : null,
+        'table_number': note.contains('Meja') ? int.tryParse(note.replaceAll('Meja ', '')) ?? 0 : 0,
       }).select();
 
       if (orderResponse.isEmpty) {

@@ -685,6 +685,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   late TextEditingController _tableController;
+  String _orderType = 'takeaway'; // TAMBAHKAN INI
 
   @override
   void initState() {
@@ -779,16 +780,84 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ),
                 const SizedBox(height: 16),
                 // Table number field
-                TextField(
-                  key: const Key('checkout_table_field'),
-                  controller: _tableController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nomor Meja',
-                    prefixIcon: Icon(Icons.table_restaurant),
-                    hintText: 'e.g., 5 (kosongkan untuk Take away)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Text('Tipe Pesanan', style: TextStyle(fontWeight: FontWeight.w600)),
+    const SizedBox(height: 8),
+    Row(
+  children: [
+    Expanded(
+      child: FilledButton(
+        onPressed: () {
+          setState(() {
+            _orderType = 'takeaway';
+            _tableController.text = '0';
+          });
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: _orderType == 'takeaway' 
+              ? SmartCashierTheme.primary 
+              : SmartCashierTheme.surfaceContainer,
+          foregroundColor: _orderType == 'takeaway' 
+              ? Colors.white 
+              : SmartCashierTheme.onSurface,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.takeout_dining, size: 18),
+            SizedBox(width: 8),
+            Text('Take Away'),
+          ],
+        ),
+      ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: FilledButton(
+        onPressed: () {
+          setState(() {
+            _orderType = 'dinein';
+            _tableController.text = '';
+          });
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: _orderType == 'dinein' 
+              ? SmartCashierTheme.primary 
+              : SmartCashierTheme.surfaceContainer,
+          foregroundColor: _orderType == 'dinein' 
+              ? Colors.white 
+              : SmartCashierTheme.onSurface,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.table_restaurant, size: 18),
+            SizedBox(width: 8),
+            Text('Dine In'),
+          ],
+        ),
+      ),
+    ),
+  ],
+),
+    if (_orderType == 'dinein') ...[
+      const SizedBox(height: 12),
+      TextField(
+        key: const Key('checkout_table_field'),
+        controller: _tableController,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Nomor Meja',
+          prefixIcon: Icon(Icons.table_restaurant),
+          hintText: 'Masukkan nomor meja',
+          border: OutlineInputBorder(),
+        ),
+      ),
+    ],
+  ],
+),
               ],
             ),
           ),
@@ -967,7 +1036,7 @@ class QrPaymentScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const OrderProgress(currentStep: 0),
+          
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
@@ -978,10 +1047,10 @@ class QrPaymentScreen extends ConsumerWidget {
               final table = customerInfo.table;
               
               ref.read(cashierOrdersProvider.notifier).addOrder(
-                customer: name,
-                note: table.isEmpty ? 'Take away' : 'Meja $table',
-                cart: cart,
-              );
+  customer: name,
+  note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
+  cart: cart,
+);
 
               ref.read(cartProvider.notifier).clear();
               ref.read(customerInfoProvider.notifier).clear();
