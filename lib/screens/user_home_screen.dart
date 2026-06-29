@@ -785,21 +785,63 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   children: [
     const Text('Tipe Pesanan', style: TextStyle(fontWeight: FontWeight.w600)),
     const SizedBox(height: 8),
-    SegmentedButton<String>(
-      segments: const [
-        ButtonSegment(value: 'takeaway', label: Text('Take Away'), icon: Icon(Icons.takeout_dining)),
-        ButtonSegment(value: 'dinein', label: Text('Dine In'), icon: Icon(Icons.table_restaurant)),
-      ],
-      selected: {_orderType},
-      onSelectionChanged: (value) {
-        setState(() => _orderType = value.first);
-        if (value.first == 'takeaway') {
-          _tableController.text = '0';
-        } else {
-          _tableController.text = '';
-        }
-      },
+    Row(
+  children: [
+    Expanded(
+      child: FilledButton(
+        onPressed: () {
+          setState(() {
+            _orderType = 'takeaway';
+            _tableController.text = '0';
+          });
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: _orderType == 'takeaway' 
+              ? SmartCashierTheme.primary 
+              : SmartCashierTheme.surfaceContainer,
+          foregroundColor: _orderType == 'takeaway' 
+              ? Colors.white 
+              : SmartCashierTheme.onSurface,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.takeout_dining, size: 18),
+            SizedBox(width: 8),
+            Text('Take Away'),
+          ],
+        ),
+      ),
     ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: FilledButton(
+        onPressed: () {
+          setState(() {
+            _orderType = 'dinein';
+            _tableController.text = '';
+          });
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: _orderType == 'dinein' 
+              ? SmartCashierTheme.primary 
+              : SmartCashierTheme.surfaceContainer,
+          foregroundColor: _orderType == 'dinein' 
+              ? Colors.white 
+              : SmartCashierTheme.onSurface,
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.table_restaurant, size: 18),
+            SizedBox(width: 8),
+            Text('Dine In'),
+          ],
+        ),
+      ),
+    ),
+  ],
+),
     if (_orderType == 'dinein') ...[
       const SizedBox(height: 12),
       TextField(
