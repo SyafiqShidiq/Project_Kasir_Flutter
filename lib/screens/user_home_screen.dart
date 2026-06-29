@@ -685,6 +685,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   late TextEditingController _tableController;
+  String _orderType = 'takeaway'; // TAMBAHKAN INI
 
   @override
   void initState() {
@@ -779,16 +780,42 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ),
                 const SizedBox(height: 16),
                 // Table number field
-                TextField(
-                  key: const Key('checkout_table_field'),
-                  controller: _tableController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nomor Meja',
-                    prefixIcon: Icon(Icons.table_restaurant),
-                    hintText: 'e.g., 5 (kosongkan untuk Take away)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Text('Tipe Pesanan', style: TextStyle(fontWeight: FontWeight.w600)),
+    const SizedBox(height: 8),
+    SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'takeaway', label: Text('Take Away'), icon: Icon(Icons.takeout_dining)),
+        ButtonSegment(value: 'dinein', label: Text('Dine In'), icon: Icon(Icons.table_restaurant)),
+      ],
+      selected: {_orderType},
+      onSelectionChanged: (value) {
+        setState(() => _orderType = value.first);
+        if (value.first == 'takeaway') {
+          _tableController.text = '0';
+        } else {
+          _tableController.text = '';
+        }
+      },
+    ),
+    if (_orderType == 'dinein') ...[
+      const SizedBox(height: 12),
+      TextField(
+        key: const Key('checkout_table_field'),
+        controller: _tableController,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Nomor Meja',
+          prefixIcon: Icon(Icons.table_restaurant),
+          hintText: 'Masukkan nomor meja',
+          border: OutlineInputBorder(),
+        ),
+      ),
+    ],
+  ],
+),
               ],
             ),
           ),
@@ -967,7 +994,7 @@ class QrPaymentScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const OrderProgress(currentStep: 0),
+          
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
@@ -978,10 +1005,10 @@ class QrPaymentScreen extends ConsumerWidget {
               final table = customerInfo.table;
               
               ref.read(cashierOrdersProvider.notifier).addOrder(
-                customer: name,
-                note: table.isEmpty ? 'Take away' : 'Meja $table',
-                cart: cart,
-              );
+  customer: name,
+  note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
+  cart: cart,
+);
 
               ref.read(cartProvider.notifier).clear();
               ref.read(customerInfoProvider.notifier).clear();
