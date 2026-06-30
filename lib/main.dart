@@ -7,6 +7,7 @@ import 'config/supabase_config.dart';
 import 'screens/auth_gate.dart';
 import 'screens/user_home_screen.dart';
 import 'screens/cashier_home_screen.dart';
+import 'screens/report_screen.dart';
 import 'models/app_role.dart';
 import 'models/order_model.dart';
 import 'models/cart_model.dart';
@@ -169,6 +170,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/order-detail',
         builder: (context, state) => const OrderDetailScreen(),
+      ),
+
+            GoRoute(
+        path: '/report',
+        builder: (context, state) => const ReportScreen(),
       ),
     ],
   );

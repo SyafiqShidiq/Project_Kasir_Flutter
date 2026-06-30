@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../main.dart';
 import 'shared_widgets.dart';
 import '../providers/auth_provider.dart';
+import '../providers/report_provider.dart';
 
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
@@ -147,6 +148,8 @@ class CashierNavigationBar extends StatelessWidget {
             context.go('/cashier/menu');
           case 2:
             context.go('/order-detail');
+          case 3:
+          context.go('/report');    
         }
       },
       destinations: const [
@@ -165,6 +168,12 @@ class CashierNavigationBar extends StatelessWidget {
           selectedIcon: Icon(Icons.receipt_long),
           label: 'Orders',
         ),
+
+      NavigationDestination(
+      icon: Icon(Icons.bar_chart_outlined),
+      selectedIcon: Icon(Icons.bar_chart, color: SmartCashierTheme.primary),
+      label: 'Laporan',
+),
       ],
     );
   }
