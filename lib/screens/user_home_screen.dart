@@ -9,6 +9,7 @@ import '../models/menu_model.dart';
 import '../extensions/menu_ui_extension.dart';
 import '../providers/menu_provider.dart';
 import '../providers/menu_filter_provider.dart';
+import '../providers/order_provider.dart';
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -1021,6 +1022,7 @@ class QrPaymentScreen extends ConsumerWidget {
             title: 'Scan untuk Bayar',
             child: Column(
               children: [
+                // ===== GANTI QR MARK DENGAN GAMBAR QRIS =====
                 Container(
                   width: 228,
                   height: 228,
@@ -1030,8 +1032,25 @@ class QrPaymentScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: SmartCashierTheme.surfaceVariant),
                   ),
-                  child: const QrMark(),
+                  child: Image.asset(
+                    'assets/images/qris_saya.jpeg', // <-- GANTI dengan nama file QRIS kamu
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.qr_code, size: 80, color: Colors.grey),
+                          SizedBox(height: 8),
+                          Text(
+                            'QRIS tidak ditemukan',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
+                // ============================================
                 const SizedBox(height: 20),
                 Text(
                   cart.total.rupiah,
@@ -1045,21 +1064,18 @@ class QrPaymentScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
-              // Create order with customer name from profile
               final name = customerInfo.name.isNotEmpty 
                 ? customerInfo.name 
                 : 'Customer';
               final table = customerInfo.table;
               
-              ref.read(cashierOrdersProvider.notifier).addOrder(
-  customer: name,
-  note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
-  cart: cart,
-);
+              ref.read(orderProvider.notifier).addOrder(
+                note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
+                cart: cart,
+              );
 
               ref.read(cartProvider.notifier).clear();
               ref.read(customerInfoProvider.notifier).clear();
