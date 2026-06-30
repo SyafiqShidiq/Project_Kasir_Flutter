@@ -203,16 +203,25 @@ class MenuCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
-              aspectRatio: 4 / 3,
-              child: Container(
-                color: menu.color,
-                child: Icon(
-                  menu.icon,
-                  color: SmartCashierTheme.primaryDark,
-                  size: 42,
-                ),
-              ),
+  aspectRatio: 4 / 3,
+  child: Container(
+    decoration: BoxDecoration(
+      color: menu.imageUrl != null && menu.imageUrl!.isNotEmpty ? null : menu.color,
+      image: menu.imageUrl != null && menu.imageUrl!.isNotEmpty
+          ? DecorationImage(image: NetworkImage(menu.imageUrl!), fit: BoxFit.cover)
+          : null,
+    ),
+    child: (menu.imageUrl == null || menu.imageUrl!.isEmpty)
+        ? Center(
+            child: Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16)),
+              child: Icon(menu.icon, color: Colors.white, size: 30),
             ),
+          )
+        : null,
+  ),
+),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
