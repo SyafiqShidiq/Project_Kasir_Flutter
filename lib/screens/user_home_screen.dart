@@ -9,6 +9,11 @@ import '../models/menu_model.dart';
 import '../extensions/menu_ui_extension.dart';
 import '../providers/menu_provider.dart';
 import '../providers/menu_filter_provider.dart';
+import '../providers/customer_provider.dart';
+import '../providers/cart_provider.dart';
+import '../extensions/app_extensions.dart';
+import '../theme/smart_cashier_theme.dart';
+import '../models/order_model.dart' as order_model;
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -1201,7 +1206,7 @@ class OrderProgress extends StatelessWidget {
 class OrderHeaderCard extends StatelessWidget {
   const OrderHeaderCard({super.key, required this.order});
 
-  final CashierOrder order;
+  final order_model.CashierOrder order;
 
   @override
   Widget build(BuildContext context) {

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../main.dart';
+import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
 import '../providers/auth_provider.dart';
 
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../models/menu_model.dart';
+import '../extensions/app_extensions.dart';
+import '../models/order_model.dart' as order_model;
+import '../models/product_draft.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
@@ -509,21 +513,9 @@ class CashierMenuTile extends ConsumerWidget {
               activeColor: Colors.green,
               onChanged: (value) async {
                 try {
-                  final menuService =
-                      ref.read(menuServiceProvider);
-
-                  await menuService.updateAvailability(
-                    id: menu.id,
-                    isAvailable: value,
-                  );
-
-                  ref.invalidate(
-                    menuListProvider,
-                  );
-
-                  ref.invalidate(
-                    availableMenuListProvider,
-                  );
+                  await ref
+                      .read(menuProvider.notifier)
+                      .toggleMenuAvailability(menu);
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context)
@@ -787,36 +779,31 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
     }
 
     try {
-      final menuService =
-          ref.read(menuServiceProvider);
+      final controller =
+          ref.read(menuProvider.notifier);
 
       if (widget.menu == null) {
-        await menuService.addMenu(
-          name: name,
-          description: null,
-          price: price,
-          category: _category,
+        await controller.add(
+          MenuDraft(
+            name: name,
+            price: price.toInt(),
+            category: _category,
+            color: _color,
+            icon: _icon,
+          ),
         );
       } else {
-        await menuService.updateMenu(
-          id: widget.menu!.id,
-          name: name,
-          description: widget.menu!.description,
-          price: price,
-          category: _category,
-          imageUrl: widget.menu!.imageUrl,
-          isAvailable:
-              widget.menu!.isAvailable,
+        await controller.updateMenu(
+          widget.menu!.id,
+          MenuDraft(
+            name: name,
+            price: price.toInt(),
+            category: _category,
+            color: _color,
+            icon: _icon,
+          ),
         );
       }
-
-      ref.invalidate(
-        menuListProvider,
-      );
-
-      ref.invalidate(
-        availableMenuListProvider,
-      );
 
       if (!mounted) return;
 
@@ -892,7 +879,7 @@ class MetricCard extends StatelessWidget {
 class OrderTile extends StatelessWidget {
   const OrderTile({super.key, required this.order});
 
-  final CashierOrder order;
+  final order_model.CashierOrder order;
 
   @override
   Widget build(BuildContext context) {
@@ -936,7 +923,7 @@ class OrderDetailScreen extends ConsumerWidget {
     }
 
     final order = orders.first;
-    final isReady = order.status == OrderStatus.ready;
+    final isReady = order.status == order_model.OrderStatus.ready;
 
     return Scaffold(
       appBar: AppBar(

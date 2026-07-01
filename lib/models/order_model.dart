@@ -7,34 +7,6 @@ enum OrderStatus {
   pickedUp,
 }
 
-extension OrderStatusText on OrderStatus {
-  String get label {
-    switch (this) {
-      case OrderStatus.paid:
-        return 'Paid';
-      case OrderStatus.preparing:
-        return 'Preparing';
-      case OrderStatus.ready:
-        return 'Ready';
-      case OrderStatus.pickedUp:
-        return 'Picked up';
-    }
-  }
-
-  int get step {
-    switch (this) {
-      case OrderStatus.paid:
-        return 0;
-      case OrderStatus.preparing:
-        return 1;
-      case OrderStatus.ready:
-        return 2;
-      case OrderStatus.pickedUp:
-        return 3;
-    }
-  }
-}
-
 class OrderItem {
   const OrderItem({
     required this.name,

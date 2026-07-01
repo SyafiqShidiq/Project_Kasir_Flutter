@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+import '../models/order_model.dart';
 import '../providers/menu_filter_provider.dart';
+import '../theme/smart_cashier_theme.dart';
+import '../extensions/app_extensions.dart';
 
 // ==================== SEARCH PANEL ====================
 class SearchPanel extends ConsumerWidget {

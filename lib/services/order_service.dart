@@ -30,8 +30,8 @@ class OrderService {
               .map<OrderItem>(
                 (item) => OrderItem(
                   name: item['menu_id'] ?? '',
-                  quantity: item['quantity'] ?? 0,
-                  subtotal: item['subtotal'] ?? 0,
+                  quantity: (item['quantity'] as num?)?.toInt() ?? 0,
+                  subtotal: (item['subtotal'] as num?)?.toInt() ?? 0,
                 ),
               )
               .toList();
@@ -83,11 +83,11 @@ class OrderService {
               'payment_method': 'qris',
               'table_number':
                   note.contains('Meja')
-                      ? note.replaceAll(
-                          'Meja ',
-                          '',
-                        )
-                      : null,
+                      ? int.tryParse(
+                          note.replaceAll('Meja ', ''),
+                        ) ??
+                        0
+                      : 0,
             })
             .select();
 
