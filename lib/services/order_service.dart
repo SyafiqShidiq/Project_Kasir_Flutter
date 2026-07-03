@@ -63,6 +63,7 @@ class OrderService {
   }
 
   Future<void> addOrder({
+    required String customer,
     required String note,
     required int total,
     required List<Map<String, dynamic>> items,
@@ -71,12 +72,10 @@ class OrderService {
         'ORD${DateTime.now().millisecondsSinceEpoch}';
 
     final response =
-        await _supabase
-            .from('orders')
-            .insert({
+        await _supabase.from('orders').insert({
               'order_number': orderNumber,
-              'user_id':
-                  _supabase.auth.currentUser?.id,
+              'user_id': _supabase.auth.currentUser?.id,
+              'customer_name': customer,
               'total_amount': total,
               'order_status': 'pending',
               'payment_status': 'paid',

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../main.dart';
-import '../theme/smart_cashier_theme.dart';
-import 'shared_widgets.dart';
-import '../providers/auth_provider.dart';
 
-import '../providers/menu_provider.dart';
-import '../providers/order_provider.dart';
-import '../models/menu_model.dart';
 import '../extensions/app_extensions.dart';
+import '../models/menu_model.dart';
 import '../models/order_model.dart' as order_model;
 import '../models/product_draft.dart';
+import '../providers/auth_provider.dart';
+import '../providers/menu_provider.dart';
+import '../providers/order_provider.dart';
+import '../theme/smart_cashier_theme.dart';
+import 'shared_widgets.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
@@ -19,7 +18,7 @@ class CashierHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final orders = ref.watch(cashierOrdersProvider);
+    final orders = ref.watch(orderProvider).value ?? [];
     final products = ref.watch(menuProvider).value ?? [];
     final activeProducts = products.where((item) => item.isAvailable).length;
 
@@ -907,7 +906,7 @@ class OrderDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final orders = ref.watch(cashierOrdersProvider);
+    final orders = ref.watch(orderProvider).value ?? [];
     
     if (orders.isEmpty) {
       return Scaffold(

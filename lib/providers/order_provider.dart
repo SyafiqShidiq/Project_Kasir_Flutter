@@ -57,10 +57,12 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
   }
 
   Future<void> addOrder({
+    required String customer,
     required String note,
     required CartState cart,
   }) async {
     await _service.addOrder(
+      customer: customer,
       note: note,
       total: cart.total,
       items: cart.lines

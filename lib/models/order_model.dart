@@ -39,9 +39,7 @@ class CashierOrder {
     return CashierOrder(
       id: orderJson['id'] ?? '',
       orderNumber: orderJson['order_number'] ?? '',
-      customer: table == null
-          ? 'Customer'
-          : 'Meja $table',
+      customer: orderJson['customer_name'] ?? 'Customer',
       status: CashierOrder.parseStatus(
         orderJson['order_status'],
       ),

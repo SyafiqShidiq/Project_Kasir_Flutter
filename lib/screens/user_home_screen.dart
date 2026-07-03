@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:project_kasir_flutter/models/menu_model.dart';
-import '../main.dart';
-import '../providers/auth_provider.dart';
-import '../models/cart_model.dart';
-import '../models/menu_model.dart';
-import '../extensions/menu_ui_extension.dart';
-import '../providers/menu_provider.dart';
-import '../providers/menu_filter_provider.dart';
-import '../providers/customer_provider.dart';
-import '../providers/cart_provider.dart';
+
 import '../extensions/app_extensions.dart';
-import '../theme/smart_cashier_theme.dart';
+import '../extensions/menu_ui_extension.dart';
+import '../models/cart_model.dart';
 import '../models/order_model.dart' as order_model;
+import '../providers/auth_provider.dart';
+import '../providers/cart_provider.dart';
+import '../providers/customer_provider.dart';
+import '../providers/menu_filter_provider.dart';
+import '../providers/menu_provider.dart';
+import '../providers/order_provider.dart';
+import '../theme/smart_cashier_theme.dart';
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -1051,11 +1051,11 @@ class QrPaymentScreen extends ConsumerWidget {
                 : 'Customer';
               final table = customerInfo.table;
               
-              ref.read(cashierOrdersProvider.notifier).addOrder(
-  customer: name,
-  note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
-  cart: cart,
-);
+              ref.read(orderProvider.notifier).addOrder(
+                customer: name,
+                note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
+                cart: cart,
+              );
 
               ref.read(cartProvider.notifier).clear();
               ref.read(customerInfoProvider.notifier).clear();
