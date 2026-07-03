@@ -11,6 +11,7 @@ import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
+import '../providers/report_provider.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
@@ -152,6 +153,8 @@ class CashierNavigationBar extends StatelessWidget {
             context.go('/cashier/menu');
           case 2:
             context.go('/order-detail');
+          case 3:
+            context.go('/report');
         }
       },
       destinations: const [
@@ -169,6 +172,14 @@ class CashierNavigationBar extends StatelessWidget {
           icon: Icon(Icons.receipt_long_outlined),
           selectedIcon: Icon(Icons.receipt_long),
           label: 'Orders',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.bar_chart_outlined),
+          selectedIcon: Icon(
+            Icons.bar_chart,
+            color: SmartCashierTheme.primary,
+          ),
+          label: 'Laporan',
         ),
       ],
     );
