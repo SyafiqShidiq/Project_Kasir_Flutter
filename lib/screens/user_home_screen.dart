@@ -1026,7 +1026,27 @@ class QrPaymentScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: SmartCashierTheme.surfaceVariant),
                   ),
-                  child: const QrMark(),
+                  child: Image.asset(
+                    'assets/images/qris_saya.jpeg',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.qr_code,
+                            size: 80,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'QRIS tidak ditemukan',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Text(
