@@ -89,4 +89,26 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
 
     await refresh();
   }
+
+  Future<void> markOrderPreparing(
+    String orderId,
+  ) async {
+    await _service.updateOrderStatus(
+      orderId: orderId,
+      status: 'preparing',
+    );
+
+    await refresh();
+  }
+
+  Future<void> markOrderPickedUp(
+    String orderId,
+  ) async {
+    await _service.updateOrderStatus(
+      orderId: orderId,
+      status: 'completed',
+    );
+
+    await refresh();
+  }
 }

@@ -22,6 +22,9 @@ class CashierHomeScreen extends ConsumerWidget {
     final orders = ref.watch(orderProvider).value ?? [];
     final products = ref.watch(menuProvider).value ?? [];
     final activeProducts = products.where((item) => item.isAvailable).length;
+    final queueOrders = orders.where(
+      (order) => order.status != order_model.OrderStatus.pickedUp,
+    );
 
     final today = DateTime.now();
 
@@ -34,6 +37,12 @@ class CashierHomeScreen extends ConsumerWidget {
           0,
           (sum, order) => sum + order.total,
         );
+    final todayOrders = orders.where(
+      (order) =>
+          order.createdAt.year == today.year &&
+          order.createdAt.month == today.month &&
+          order.createdAt.day == today.day,
+    );
 
 
     return Scaffold(
@@ -74,10 +83,10 @@ class CashierHomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: MetricCard(
                   label: 'Orders',
-                  value: '48', //orders belum sinkron
+                  value: todayOrders.length.toString(), //orders belum sinkron
                   icon: Icons.receipt_long_outlined,
                 ),
               ),
@@ -86,10 +95,10 @@ class CashierHomeScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: MetricCard(
                   label: 'Queue',
-                  value: '7', // queue belum sinkron
+                  value: queueOrders.length.toString(), // queue belum sinkron
                   icon: Icons.hourglass_top,
                 ),
               ),
@@ -1026,7 +1035,7 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           );
         }
-        final isReady = order.status == order_model.OrderStatus.ready;
+        final isFinished = order.status == order_model.OrderStatus.pickedUp;
 
         return Scaffold(
             appBar: AppBar(
@@ -1062,16 +1071,75 @@ class OrderDetailScreen extends ConsumerWidget {
           bottomNavigationBar: Padding(
             padding: const EdgeInsets.all(16),
             child: FilledButton.icon(
-              onPressed: isReady
-                  ? null
-                  : () {
-                      ref.read(orderProvider.notifier).markOrderReady(order.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${order.orderNumber} siap diambil')),
-                      );
-                    },
-              icon: const Icon(Icons.done_all),
-              label: Text(isReady ? 'Sudah siap' : 'Tandai siap'),
+              onPressed: isFinished ? null : () async {
+                switch (order.status) {
+                  case order_model.OrderStatus.paid:
+                    await ref
+                        .read(orderProvider.notifier)
+                        .markOrderPreparing(order.id);
+
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${order.orderNumber} mulai diproses',
+                        ),
+                      ),
+                    );
+                    break;
+
+                  case order_model.OrderStatus.preparing:
+                    await ref
+                        .read(orderProvider.notifier)
+                        .markOrderReady(order.id);
+
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${order.orderNumber} siap diambil',
+                        ),
+                      ),
+                    );
+                    break;
+
+                  case order_model.OrderStatus.ready:
+                    await ref
+                        .read(orderProvider.notifier)
+                        .markOrderPickedUp(order.id);
+
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '${order.orderNumber} telah diambil',
+                        ),
+                      ),
+                    );
+                    break;
+                  case order_model.OrderStatus.pickedUp:
+                    break;
+                }
+              },
+              icon: Icon(
+                switch (order.status) {
+                  order_model.OrderStatus.paid => Icons.restaurant,
+                  order_model.OrderStatus.preparing => Icons.done_all,
+                  order_model.OrderStatus.ready => Icons.shopping_bag,
+                  order_model.OrderStatus.pickedUp => Icons.check_circle,
+                },
+              ),
+              label: Text(
+                switch (order.status) {
+                  order_model.OrderStatus.paid => 'Mulai proses',
+                  order_model.OrderStatus.preparing => 'Tandai siap',
+                  order_model.OrderStatus.ready => 'Serahkan Pesanan',
+                  order_model.OrderStatus.pickedUp => 'Selesai',
+                },
+              ),
             ),
           ),
         );
