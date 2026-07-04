@@ -91,6 +91,7 @@ class MenuController
       description: '${draft.category} menu',
       price: draft.price.toDouble(),
       category: draft.category,
+      imageUrl: draft.imageUrl,
     );
 
     await refresh();
@@ -106,6 +107,7 @@ class MenuController
       description: '${draft.category} menu',
       price: draft.price.toDouble(),
       category: draft.category,
+      imageUrl: draft.imageUrl,
       isAvailable: true,
     );
 

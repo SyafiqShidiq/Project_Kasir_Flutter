@@ -11,7 +11,6 @@ import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
-import '../providers/report_provider.dart';
 
 // ==================== CASHIER HOME SCREEN ====================
 class CashierHomeScreen extends ConsumerWidget {
@@ -481,17 +480,27 @@ class CashierMenuTile extends ConsumerWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD9F1E2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                Icons.restaurant_menu,
-                color: SmartCashierTheme.primaryDark,
-                size: 30,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD9F1E2),
+                  image: menu.imageUrl != null && menu.imageUrl!.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(menu.imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: (menu.imageUrl == null || menu.imageUrl!.isEmpty)
+                    ? const Icon(
+                        Icons.restaurant_menu,
+                        color: SmartCashierTheme.primaryDark,
+                        size: 30,
+                      )
+                    : null,
               ),
             ),
             const SizedBox(width: 12),
@@ -611,6 +620,7 @@ class MenuEditorSheet extends ConsumerStatefulWidget {
 class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
+  late final TextEditingController _imageUrlController;
   late String _category;
   late IconData _icon;
   late Color _color;
@@ -641,6 +651,9 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
     _priceController = TextEditingController(
       text: menu == null ? '' : '${menu.price}',
     );
+    _imageUrlController = TextEditingController(
+      text: menu?.imageUrl ?? '',
+    );
     _category = menu?.category ?? _categories.first;
     _icon = _icons.first;
     _color = _colors.first;
@@ -650,6 +663,7 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _imageUrlController.dispose();
     super.dispose();
   }
 
@@ -707,6 +721,16 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
             decoration: const InputDecoration(
               labelText: 'Harga',
               prefixIcon: Icon(Icons.payments_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          TextField(
+            controller: _imageUrlController,
+            decoration: const InputDecoration(
+              labelText: 'URL Gambar (opsional)',
+              prefixIcon: Icon(Icons.image_outlined),
+              hintText: 'https://...',
             ),
           ),
           const SizedBox(height: 14),
@@ -776,6 +800,10 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
           _priceController.text.trim(),
         ) ??
         0;
+    final imageUrl =
+        _imageUrlController.text.trim().isEmpty
+            ? null
+            : _imageUrlController.text.trim();
 
     if (name.isEmpty || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -800,6 +828,7 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
             category: _category,
             color: _color,
             icon: _icon,
+            imageUrl: imageUrl,
           ),
         );
       } else {
@@ -811,6 +840,7 @@ class _MenuEditorSheetState extends ConsumerState<MenuEditorSheet> {
             category: _category,
             color: _color,
             icon: _icon,
+            imageUrl: imageUrl,
           ),
         );
       }

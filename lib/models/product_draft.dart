@@ -7,6 +7,7 @@ class MenuDraft {
     required this.price,
     required this.color,
     required this.icon,
+    this.imageUrl,
   });
 
   final String name;
@@ -14,4 +15,5 @@ class MenuDraft {
   final int price;
   final Color color;
   final IconData icon;
+  final String? imageUrl;
 }

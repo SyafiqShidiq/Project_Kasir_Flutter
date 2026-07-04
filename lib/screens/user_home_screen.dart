@@ -210,12 +210,22 @@ class MenuCard extends ConsumerWidget {
             AspectRatio(
               aspectRatio: 4 / 3,
               child: Container(
-                color: menu.color,
-                child: Icon(
-                  menu.icon,
-                  color: SmartCashierTheme.primaryDark,
-                  size: 42,
+                decoration: BoxDecoration(
+                  color: menu.color,
+                  image: menu.imageUrl != null && menu.imageUrl!.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(menu.imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
+                child: (menu.imageUrl == null || menu.imageUrl!.isEmpty)
+                    ? Icon(
+                        menu.icon,
+                        color: SmartCashierTheme.primaryDark,
+                        size: 42,
+                      )
+                    : null,
               ),
             ),
             Expanded(
