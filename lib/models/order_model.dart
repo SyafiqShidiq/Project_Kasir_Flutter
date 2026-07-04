@@ -29,6 +29,7 @@ class CashierOrder {
     required this.accent,
     required this.items,
     required this.note,
+    required this.createdAt,
   });
   factory CashierOrder.fromOrderJson({
     required Map<String, dynamic> orderJson,
@@ -51,6 +52,7 @@ class CashierOrder {
       note: table == null
           ? 'Take Away'
           : 'Meja $table',
+      createdAt: DateTime.parse(orderJson['created_at']).toLocal(),
     );
   }
 
@@ -62,6 +64,7 @@ class CashierOrder {
   final Color accent;
   final List<OrderItem> items;
   final String note;
+  final DateTime createdAt;
 
   CashierOrder copyWith({
     OrderStatus? status,
@@ -75,6 +78,7 @@ class CashierOrder {
       accent: accent,
       items: items,
       note: note,
+      createdAt: createdAt,
     );
   }
 
@@ -100,7 +104,7 @@ class CashierOrder {
   }
 
   static CashierOrder empty() {
-    return const CashierOrder(
+    return CashierOrder(
       id: '',
       orderNumber: '',
       customer: '',
@@ -109,6 +113,7 @@ class CashierOrder {
       accent: Color(0xFFFFEDB5),
       items: [],
       note: '',
+      createdAt: DateTime.now(),
     );
   }
   static Color _statusColor(

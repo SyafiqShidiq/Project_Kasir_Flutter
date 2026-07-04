@@ -10,10 +10,10 @@ import '../models/order_model.dart' as order_model;
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/customer_provider.dart';
-import '../providers/menu_filter_provider.dart';
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../theme/smart_cashier_theme.dart';
+import 'shared_widgets.dart';
 
 // ==================== USER HOME SCREEN ====================
 class UserHomeScreen extends ConsumerWidget {
@@ -282,56 +282,9 @@ class MenuCard extends ConsumerWidget {
 }
 
 // ==================== SEARCH PANEL ====================
-class SearchPanel extends ConsumerWidget {
-  const SearchPanel({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return TextField(
-      onChanged: (value) => ref.read(menuFilterProvider.notifier).search(value),
-      decoration: const InputDecoration(
-        hintText: 'Search menu or order code',
-        prefixIcon: Icon(Icons.search),
-      ),
-    );
-  }
-}
 
 // ==================== CATEGORY CHIPS ====================
-class CategoryChips extends ConsumerWidget {
-  const CategoryChips({super.key});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedCategory = ref.watch(menuFilterProvider).category;
-    const categories = ['All', 'Meals', 'Drinks', 'Snacks', 'Dessert'];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final category in categories) ...[
-            FilterChip(
-              selected: category == selectedCategory,
-              onSelected: (_) => ref
-                  .read(menuFilterProvider.notifier)
-                  .selectCategory(category),
-              label: Text(category),
-              selectedColor: SmartCashierTheme.primary,
-              checkmarkColor: Colors.white,
-              labelStyle: TextStyle(
-                color: category == selectedCategory
-                    ? Colors.white
-                    : SmartCashierTheme.onSurface,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
-      ),
-    );
-  }
-}
 
 // ==================== EMPTY MENU RESULT ====================
 class EmptyMenuResult extends StatelessWidget {

@@ -19,7 +19,11 @@ class OrderService {
     for (final orderJson in ordersData) {
       final itemsData = await _supabase
           .from('order_items')
-          .select()
+          .select('''
+            quantity,
+            subtotal,
+            menus(name)
+          ''')
           .eq(
             'order_id',
             orderJson['id'],
@@ -29,7 +33,7 @@ class OrderService {
           itemsData
               .map<OrderItem>(
                 (item) => OrderItem(
-                  name: item['menu_id'] ?? '',
+                  name: item['menus']['name'] ?? '',
                   quantity: (item['quantity'] as num?)?.toInt() ?? 0,
                   subtotal: (item['subtotal'] as num?)?.toInt() ?? 0,
                 ),
@@ -69,7 +73,7 @@ class OrderService {
     required List<Map<String, dynamic>> items,
   }) async {
     final orderNumber =
-        'ORD${DateTime.now().millisecondsSinceEpoch}';
+        'ORD${DateTime.now().millisecondsSinceEpoch}'; //Kemungkinan input order_number berdasarkan waktu dibuat
 
     final response =
         await _supabase.from('orders').insert({

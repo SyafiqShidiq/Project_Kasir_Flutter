@@ -9,6 +9,7 @@ import '../models/product_draft.dart';
 import '../providers/auth_provider.dart';
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
+import '../providers/menu_filter_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
 
@@ -21,6 +22,19 @@ class CashierHomeScreen extends ConsumerWidget {
     final orders = ref.watch(orderProvider).value ?? [];
     final products = ref.watch(menuProvider).value ?? [];
     final activeProducts = products.where((item) => item.isAvailable).length;
+
+    final today = DateTime.now();
+
+    final todaySales = orders
+        .where((order) =>
+            order.createdAt.year == today.year &&
+            order.createdAt.month == today.month &&
+            order.createdAt.day == today.day)
+        .fold<int>(
+          0,
+          (sum, order) => sum + order.total,
+        );
+
 
     return Scaffold(
       appBar: AppBar(
@@ -55,7 +69,7 @@ class CashierHomeScreen extends ConsumerWidget {
               Expanded(
                 child: MetricCard(
                   label: 'Today sales',
-                  value: 2450000.rupiah,
+                  value: todaySales.rupiah,
                   icon: Icons.payments_outlined,
                 ),
               ),
@@ -63,7 +77,7 @@ class CashierHomeScreen extends ConsumerWidget {
               const Expanded(
                 child: MetricCard(
                   label: 'Orders',
-                  value: '48',
+                  value: '48', //orders belum sinkron
                   icon: Icons.receipt_long_outlined,
                 ),
               ),
@@ -75,7 +89,7 @@ class CashierHomeScreen extends ConsumerWidget {
               const Expanded(
                 child: MetricCard(
                   label: 'Queue',
-                  value: '7',
+                  value: '7', // queue belum sinkron
                   icon: Icons.hourglass_top,
                 ),
               ),
@@ -135,13 +149,14 @@ class CashierHomeScreen extends ConsumerWidget {
 }
 
 // ==================== CASHIER NAVIGATION BAR ====================
-class CashierNavigationBar extends StatelessWidget {
+class CashierNavigationBar extends ConsumerWidget {
   const CashierNavigationBar({super.key, required this.activeIndex});
 
   final int activeIndex;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orders = ref.watch(orderProvider).value ?? [];
     return NavigationBar(
       selectedIndex: activeIndex,
       onDestinationSelected: (index) {
@@ -151,7 +166,16 @@ class CashierNavigationBar extends StatelessWidget {
           case 1:
             context.go('/cashier/menu');
           case 2:
-            context.go('/order-detail');
+            if (orders.isNotEmpty) {
+              context.go('/order-detail/${orders.first.id}');
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Belum ada order'),
+                ),
+              );
+            }
+            break;
           case 3:
             context.go('/report');
         }
@@ -192,6 +216,7 @@ class CashierMenuScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menuAsync = ref.watch(menuProvider);
+    final filter = ref.watch(menuFilterProvider);
 
     return menuAsync.when(
       loading: () => const Scaffold(
@@ -209,6 +234,19 @@ class CashierMenuScreen extends ConsumerWidget {
       ),
 
       data: (allMenus) {
+        var filteredMenus = allMenus;
+        if (filter.category != MenuFilter.allCategory) {
+          filteredMenus = filteredMenus.where(
+            (menu) => menu.category == filter.category,
+          ).toList();
+        }
+        if (filter.query.isNotEmpty) {
+          final keyword = filter.query.toLowerCase();
+
+          filteredMenus = filteredMenus.where((menu) {
+            return menu.name.toLowerCase().contains(keyword);
+          }).toList();
+        }
         final inactive =
             allMenus
                 .where(
@@ -259,10 +297,10 @@ class CashierMenuScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              if (allMenus.isEmpty)
+              if (filteredMenus.isEmpty)
                 const EmptyMenuResult()
               else
-                for (final menu in allMenus) ...[
+                for (final menu in filteredMenus) ...[
                   CashierMenuTile(menu: menu),
                   const SizedBox(height: 12),
                 ],
@@ -925,7 +963,7 @@ class OrderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        onTap: () => context.go('/order-detail'),
+        onTap: () => context.go('/order-detail/${order.id}'),
         leading: CircleAvatar(
           backgroundColor: order.accent,
           foregroundColor: SmartCashierTheme.primaryDark,
@@ -943,74 +981,101 @@ class OrderTile extends StatelessWidget {
 }
 
 class OrderDetailScreen extends ConsumerWidget {
-  const OrderDetailScreen({super.key});
+  const OrderDetailScreen({super.key, required this.orderId,});
+  final String orderId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final orders = ref.watch(orderProvider).value ?? [];
-    
-    if (orders.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Order Detail'),
-          leading: IconButton(
-            onPressed: () => context.go('/cashier'),
-            icon: const Icon(Icons.arrow_back),
-          ),
-        ),
-        body: const Center(child: Text('Tidak ada order')),
-      );
-    }
+    final ordersAsync = ref.watch(orderProvider);
 
-    final order = orders.first;
-    final isReady = order.status == order_model.OrderStatus.ready;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Order ${order.orderNumber}'),
-        leading: IconButton(
-          onPressed: () => context.go('/cashier'),
-          icon: const Icon(Icons.arrow_back),
+    return ordersAsync.when(
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          OrderHeaderCard(order: order),
-          const SizedBox(height: 12),
-          SectionCard(
-            title: 'Items',
-            child: Column(
-              children: [
-                for (var i = 0; i < order.items.length; i++) ...[
-                  DetailRow(
-                    label: '${order.items[i].quantity}x ${order.items[i].name}',
-                    value: order.items[i].subtotal.rupiah,
-                  ),
-                  if (i != order.items.length - 1) const Divider(height: 24),
-                ],
-              ],
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Text('Error: $error'),
+        ),
+      ),
+      data: (orders) {
+        if (orders.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Order Detail'),
+              leading: IconButton(
+                onPressed: () => context.go('/cashier'),
+                icon: const Icon(Icons.arrow_back),
+              ),
+            ),
+            body: const Center(child: Text('Tidak ada order')),
+          );
+        }
+        final orderId =
+            GoRouterState.of(context).pathParameters['id'];
+
+        final order = orders.firstWhere(
+          (o) => o.id == orderId,
+          orElse: order_model.CashierOrder.empty,
+        );
+        if (order.id.isEmpty) {
+          return const Scaffold(
+            body: Center(
+              child: Text('Order tidak ditemukan'),
+            ),
+          );
+        }
+        final isReady = order.status == order_model.OrderStatus.ready;
+
+        return Scaffold(
+            appBar: AppBar(
+            title: Text('Order ${order.orderNumber}'),
+            leading: IconButton(
+              onPressed: () => context.go('/cashier'),
+              icon: const Icon(Icons.arrow_back),
             ),
           ),
-          const SizedBox(height: 12),
-          SectionCard(title: 'Catatan', child: Text(order.note)),
-        ],
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: FilledButton.icon(
-          onPressed: isReady
-              ? null
-              : () {
-                  ref.read(orderProvider.notifier).markOrderReady(order.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${order.orderNumber} siap diambil')),
-                  );
-                },
-          icon: const Icon(Icons.done_all),
-          label: Text(isReady ? 'Sudah siap' : 'Tandai siap'),
-        ),
-      ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              OrderHeaderCard(order: order),
+              const SizedBox(height: 12),
+              SectionCard(
+                title: 'Items',
+                child: Column(
+                  children: [
+                    for (var i = 0; i < order.items.length; i++) ...[
+                      DetailRow(
+                        label: '${order.items[i].quantity}x ${order.items[i].name}',
+                        value: order.items[i].subtotal.rupiah,
+                      ),
+                      if (i != order.items.length - 1) const Divider(height: 24),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SectionCard(title: 'Catatan', child: Text(order.note)),
+            ],
+          ),
+          bottomNavigationBar: Padding(
+            padding: const EdgeInsets.all(16),
+            child: FilledButton.icon(
+              onPressed: isReady
+                  ? null
+                  : () {
+                      ref.read(orderProvider.notifier).markOrderReady(order.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${order.orderNumber} siap diambil')),
+                      );
+                    },
+              icon: const Icon(Icons.done_all),
+              label: Text(isReady ? 'Sudah siap' : 'Tandai siap'),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -49,8 +49,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CashierMenuScreen(),
       ),
       GoRoute(
-        path: '/order-detail',
-        builder: (context, state) => const OrderDetailScreen(),
+        path: '/order-detail/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return OrderDetailScreen(orderId: id);
+        },
       ),
       GoRoute(
         path: '/report',
