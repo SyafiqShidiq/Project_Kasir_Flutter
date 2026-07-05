@@ -28,6 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  url_launcher: ^6.3.0
+  package_info_plus: ^8.0.2
   pdf: ^3.10.0
   path_provider: ^2.1.0
   flutter_file_dialog: ^3.0.2

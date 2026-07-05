@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
+import '../features/update/service/update_service.dart';
+import '../features/update/widget/update_dialog.dart';
+import '../features/update/service/version_checker.dart';
+import '../features/update/manager/update_manager.dart';
+import '../features/update/enum/update_status.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +23,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() async {
+      final manager = UpdateManager(
+        service: ref.read(updateServiceProvider),
+        checker: VersionChecker(),
+      );
+
+      final result = await manager.checkForUpdates();
+
+      if (!mounted) return;
+
+      switch (result.status) {
+        case UpdateStatus.upToDate:
+          debugPrint('Aplikasi sudah versi terbaru.');
+          break;
+
+        case UpdateStatus.optionalUpdate:
+          await showUpdateDialog(
+            context: context,
+            latestVersion: result.config.latestVersion,
+            playstoreUrl: result.config.playstoreUrl,
+            forceUpdate: false,
+          );
+          break;
+
+        case UpdateStatus.forceUpdate:
+          await showUpdateDialog(
+            context: context,
+            latestVersion: result.config.latestVersion,
+            playstoreUrl: result.config.playstoreUrl,
+            forceUpdate: true,
+          );
+          break;
+
+        case UpdateStatus.maintenance:
+          break;
+      }
+    });
+  }
 
   @override
   void dispose() {
