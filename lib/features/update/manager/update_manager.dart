@@ -18,6 +18,14 @@ class UpdateManager {
 
     final currentVersion =
         await _checker.currentVersion();
+    
+    if (config.maintenanceMode) {
+      return UpdateResult(
+        status: UpdateStatus.maintenance,
+        config: config,
+        currentVersion: currentVersion,
+      );
+    }
 
     if (_checker.isForceUpdate(
       currentVersion: currentVersion,

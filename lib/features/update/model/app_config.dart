@@ -3,7 +3,7 @@ class AppConfig {
     required this.latestVersion,
     required this.minimumVersion,
     required this.forceUpdate,
-    required this.maintenanceMode,
+    this.maintenanceMode = false,
     required this.playstoreUrl,
     required this.updateTitle,
     required this.updateMessage,

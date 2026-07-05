@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../features/update/service/update_service.dart';
 import '../features/update/widget/update_dialog.dart';
+import '../features/update/widget/maintenance_dialog.dart';
 import '../features/update/service/version_checker.dart';
 import '../features/update/manager/update_manager.dart';
 import '../features/update/enum/update_status.dart';
@@ -62,7 +63,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           break;
 
         case UpdateStatus.maintenance:
-          break;
+        await showMaintenanceDialog(
+          context: context,
+        );
+        break;
       }
     });
   }
