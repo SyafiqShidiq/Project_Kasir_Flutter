@@ -1,4 +1,4 @@
-package com.syafiqshidiq.project_kasir_flutter
+package com.ti24a6.orderku
 
 import io.flutter.embedding.android.FlutterActivity
 
