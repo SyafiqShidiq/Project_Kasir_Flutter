@@ -182,7 +182,7 @@ class ResponsiveProductGrid extends StatelessWidget {
             crossAxisCount: columns,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.72,
+            mainAxisExtent: 280,
           ),
           itemBuilder: (context, index) =>
               MenuCard(menu: products[index]),
@@ -242,24 +242,27 @@ class MenuCard extends ConsumerWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const Spacer(),
+
+                    const SizedBox(height: 6),
+
                     Text(
                       menu.category,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: SmartCashierTheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 6),
+
+                    const SizedBox(height: 10),
+
                     Row(
                       children: [
                         Expanded(
                           child: Text(
                             menu.price.toInt().rupiah,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: SmartCashierTheme.primaryDark,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: SmartCashierTheme.primaryDark,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                         const CircleAvatar(
@@ -272,7 +275,7 @@ class MenuCard extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ),
+              )
             ),
           ],
         ),
