@@ -11,6 +11,7 @@ class MerchantService {
         .from('merchants')
         .select()
         .eq('merchant_code', merchantCode)
+        .eq('is_active', true)
         .maybeSingle();
 
     if (response == null) return null;

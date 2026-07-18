@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:project_kasir_flutter/models/menu_model.dart';
+import 'package:project_kasir_flutter/models/qr_payload.dart';
 
 import '../extensions/app_extensions.dart';
 import '../extensions/menu_ui_extension.dart';
@@ -13,6 +14,7 @@ import '../providers/customer_provider.dart';
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/current_order_provider.dart';
+import '../providers/merchant_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
 
@@ -1362,8 +1364,53 @@ class QrPaymentScreen extends ConsumerWidget {
           
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: () {
-              context.push('/qr-scanner');
+            onPressed: () async {
+              final payload = await context.push<QrPayload>(
+                '/qr-scanner',
+              );
+
+              if (!context.mounted || payload == null) {
+                return;
+              }
+
+              if (payload.type != 'merchant') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('QR bukan Merchant.'),
+                  ),
+                );
+                return;
+              }
+
+              final merchantService = ref.read(
+                merchantServiceProvider,
+              );
+
+              final merchant = await merchantService
+                  .getMerchantByCode(payload.value);
+
+              if (!context.mounted) {
+                return;
+              }
+
+              if (merchant == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Merchant tidak ditemukan atau sudah tidak aktif.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Merchant "${merchant.merchantName}" berhasil divalidasi.',
+                  ),
+                ),
+              );
             },
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Scan QR Merchant'),
