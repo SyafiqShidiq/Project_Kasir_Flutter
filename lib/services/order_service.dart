@@ -50,6 +50,19 @@ class OrderService {
 
     return orders;
   }
+  Future<List<Map<String, dynamic>>> getActiveOrders() async {
+    final data = await _supabase
+        .from('orders')
+        .select()
+        .eq('user_id', _supabase.auth.currentUser!.id)
+        .neq('order_status', 'completed')
+        .order(
+          'created_at',
+          ascending: false,
+        );
+
+    return List<Map<String, dynamic>>.from(data);
+  }
 
   Future<void> updateOrderStatus({
     required String orderId,
@@ -66,33 +79,25 @@ class OrderService {
         );
   }
 
-  Future<void> addOrder({
+  Future<Map<String, dynamic>> addOrder({
     required String customer,
-    required String note,
+    required String orderType,
+    int? tableNumber,
     required int total,
     required List<Map<String, dynamic>> items,
   }) async {
-    final orderNumber =
-        'ORD${DateTime.now().millisecondsSinceEpoch}'; //Kemungkinan input order_number berdasarkan waktu dibuat
 
     final response =
         await _supabase.from('orders').insert({
-              'order_number': orderNumber,
               'user_id': _supabase.auth.currentUser?.id,
               'customer_name': customer,
               'total_amount': total,
-              'order_status': 'pending',
-              'payment_status': 'paid',
+              'order_status': 'waiting_payment',
+              'payment_status': 'unpaid',
               'payment_method': 'qris',
-              'table_number':
-                  note.contains('Meja')
-                      ? int.tryParse(
-                          note.replaceAll('Meja ', ''),
-                        ) ??
-                        0
-                      : 0,
-            })
-            .select();
+              'order_type': orderType,
+              'table_number': tableNumber,
+            }).select();
 
     final orderId = response.first['id'];
 
@@ -107,5 +112,6 @@ class OrderService {
             'subtotal': item['subtotal'],
           });
     }
+    return response.first;
   }
 }

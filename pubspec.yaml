@@ -28,6 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  mobile_scanner: ^7.1.2
+  qr_flutter: ^4.1.0
   flutter_exit_app: ^1.1.2
   url_launcher: ^6.3.0
   package_info_plus: ^8.0.2

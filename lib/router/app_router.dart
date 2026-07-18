@@ -6,6 +6,8 @@ import '../screens/user_home_screen.dart';
 import '../screens/cashier_home_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/report_screen.dart';
+import '../screens/merchant_qr_screen.dart';
+import '../screens/qr_scanner_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -58,6 +60,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/report',
         builder: (context, state) => const ReportScreen(),
+      ),
+      GoRoute(
+        path: '/merchant-qr',
+        builder: (context, state) =>
+            const MerchantQrScreen(),
+      ),
+      GoRoute(
+        path: '/qr-scanner',
+        builder: (context, state) =>
+            const QrScannerScreen(),
       ),
     ],
   );

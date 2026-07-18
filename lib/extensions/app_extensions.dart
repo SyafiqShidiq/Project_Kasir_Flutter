@@ -44,6 +44,8 @@ extension PaymentMethodText on PaymentMethod {
 extension OrderStatusText on OrderStatus {
   String get label {
     switch (this) {
+      case OrderStatus.waitingPayment:
+        return 'Waiting Payment';
       case OrderStatus.paid:
         return 'Paid';
       case OrderStatus.preparing:
@@ -57,14 +59,16 @@ extension OrderStatusText on OrderStatus {
 
   int get step {
     switch (this) {
-      case OrderStatus.paid:
+      case OrderStatus.waitingPayment:
         return 0;
-      case OrderStatus.preparing:
+      case OrderStatus.paid:
         return 1;
-      case OrderStatus.ready:
+      case OrderStatus.preparing:
         return 2;
-      case OrderStatus.pickedUp:
+      case OrderStatus.ready:
         return 3;
+      case OrderStatus.pickedUp:
+        return 4;
     }
   }
 }

@@ -172,8 +172,10 @@ class CashierNavigationBar extends ConsumerWidget {
         switch (index) {
           case 0:
             context.go('/cashier');
+            break;
           case 1:
             context.go('/cashier/menu');
+            break;
           case 2:
             if (orders.isNotEmpty) {
               context.go('/order-detail/${orders.first.id}');
@@ -186,7 +188,11 @@ class CashierNavigationBar extends ConsumerWidget {
             }
             break;
           case 3:
+            context.go('/merchant-qr');
+            break;
+          case 4:
             context.go('/report');
+            break;
         }
       },
       destinations: const [
@@ -204,6 +210,11 @@ class CashierNavigationBar extends ConsumerWidget {
           icon: Icon(Icons.receipt_long_outlined),
           selectedIcon: Icon(Icons.receipt_long),
           label: 'Orders',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.qr_code_outlined),
+          selectedIcon: Icon(Icons.qr_code),
+          label: 'Merchant',
         ),
         NavigationDestination(
           icon: Icon(Icons.bar_chart_outlined),
@@ -1073,6 +1084,17 @@ class OrderDetailScreen extends ConsumerWidget {
             child: FilledButton.icon(
               onPressed: isFinished ? null : () async {
                 switch (order.status) {
+                  case order_model.OrderStatus.waitingPayment:
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Customer belum menyelesaikan pembayaran.',
+                        ),
+                      ),
+                    );
+                    break;
                   case order_model.OrderStatus.paid:
                     await ref
                         .read(orderProvider.notifier)
@@ -1126,6 +1148,7 @@ class OrderDetailScreen extends ConsumerWidget {
               },
               icon: Icon(
                 switch (order.status) {
+                  order_model.OrderStatus.waitingPayment => Icons.restaurant,
                   order_model.OrderStatus.paid => Icons.restaurant,
                   order_model.OrderStatus.preparing => Icons.done_all,
                   order_model.OrderStatus.ready => Icons.shopping_bag,
@@ -1134,6 +1157,7 @@ class OrderDetailScreen extends ConsumerWidget {
               ),
               label: Text(
                 switch (order.status) {
+                  order_model.OrderStatus.waitingPayment => 'Menunggu Pembayaran',
                   order_model.OrderStatus.paid => 'Mulai proses',
                   order_model.OrderStatus.preparing => 'Tandai siap',
                   order_model.OrderStatus.ready => 'Serahkan Pesanan',

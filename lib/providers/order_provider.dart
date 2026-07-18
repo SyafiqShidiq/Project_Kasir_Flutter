@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../models/cart_model.dart';
+import 'current_order_provider.dart';
 
 final orderServiceProvider =
     Provider<OrderService>(
@@ -55,15 +56,53 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
 
     await refresh();
   }
+  Future<List<Map<String, dynamic>>> getActiveOrders() async {
+    return await _service.getActiveOrders();
+  }
+  
+  Future<Map<String, dynamic>?> loadActiveOrder() async {
+    final orders = await _service.getActiveOrders();
 
-  Future<void> addOrder({
+    if (orders.isEmpty) {
+      return null;
+    }
+
+    return orders.first;
+  }
+  Future<Map<String, dynamic>?> refreshCurrentOrder() async {
+    final order = await loadActiveOrder();
+    return order;
+  }
+  Future<void> restoreCurrentOrder() async {
+    print('=== RESTORE CURRENT ORDER ===');
+    final order = await loadActiveOrder();
+
+    final notifier = ref.read(
+      currentOrderProvider.notifier,
+    );
+
+    if (order == null) {
+      print('Tidak ada invoice aktif');
+      notifier.clear();
+    } else {
+      print(
+        'Invoice ditemukan: ${order['order_number']}',
+      );
+      notifier.setOrder(order);
+    }
+    print('=== RESTORE SELESAI ===');
+  }
+
+  Future<Map<String, dynamic>> addOrder({
     required String customer,
-    required String note,
+    required String orderType,
+    int? tableNumber,
     required CartState cart,
   }) async {
-    await _service.addOrder(
+    final order = await _service.addOrder(
       customer: customer,
-      note: note,
+      orderType: orderType,
+      tableNumber: tableNumber,
       total: cart.total,
       items: cart.lines
           .map(
@@ -78,6 +117,7 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
     );
 
     await refresh();
+    return order;
   }
   Future<void> markOrderReady(
     String orderId,

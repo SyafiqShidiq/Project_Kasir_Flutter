@@ -12,15 +12,32 @@ import '../providers/cart_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
+import '../providers/current_order_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
 
 // ==================== USER HOME SCREEN ====================
-class UserHomeScreen extends ConsumerWidget {
+class UserHomeScreen extends ConsumerStatefulWidget {
   const UserHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UserHomeScreen> createState() =>
+      _UserHomeScreenState();
+}
+class _UserHomeScreenState extends ConsumerState<UserHomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() async {
+      await ref
+          .read(orderProvider.notifier)
+          .restoreCurrentOrder();
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
     final products = ref.watch(filteredMenusProvider);
     final cart = ref.watch(cartProvider);
 
@@ -39,7 +56,7 @@ class UserHomeScreen extends ConsumerWidget {
           const SizedBox(width: 8),
           IconButton(
             tooltip: 'Logout',
-            onPressed: () => _showLogoutDialog(context, ref),
+            onPressed: () => _showLogoutDialog(context),
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -70,7 +87,7 @@ class UserHomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+  void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -89,7 +106,7 @@ class UserHomeScreen extends ConsumerWidget {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop();
-                await _handleLogout(context, ref);
+                await _handleLogout(context);
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.red,
@@ -102,9 +119,10 @@ class UserHomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleLogout(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleLogout(BuildContext context) async {
     try {
       ref.read(cartProvider.notifier).clear();
+      ref.read(currentOrderProvider.notifier).clear();
 
       await ref.read(authServiceProvider).logout();
 
@@ -322,12 +340,42 @@ class EmptyMenuResult extends StatelessWidget {
 }
 
 // ==================== CART SCREEN ====================
-class CartScreen extends ConsumerWidget {
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CartScreen> createState() =>
+      _CartScreenState();
+}
+class _CartScreenState extends ConsumerState<CartScreen> {
+  Future<void> _loadCurrentOrder() async {
+    final order = await ref
+        .read(orderProvider.notifier)
+        .loadActiveOrder();
+
+    if (order != null) {
+      ref
+          .read(currentOrderProvider.notifier)
+          .setOrder(order);
+    } else {
+      ref
+          .read(currentOrderProvider.notifier)
+          .clear();
+    }
+  }
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() async {
+      await _loadCurrentOrder();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final currentOrder = ref.watch(currentOrderProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -346,7 +394,11 @@ class CartScreen extends ConsumerWidget {
         ],
       ),
       body: cart.lines.isEmpty
-          ? const EmptyCartWithMenu()
+          ? currentOrder == null
+              ? const EmptyCartWithMenu()
+              : EmptyCartWithInvoice(
+                  order: currentOrder,
+                )
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 132),
               children: [
@@ -371,7 +423,44 @@ class CartScreen extends ConsumerWidget {
         total: cart.total,
         label: 'Checkout',
         enabled: cart.itemCount > 0,
-        onPressed: () => context.go('/checkout'),
+        onPressed: () async {
+  if (currentOrder != null &&
+      currentOrder['payment_status'] == 'unpaid') {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Masih Ada Pesanan Aktif'),
+          content: const Text(
+            'Selesaikan pembayaran pesanan sebelumnya terlebih dahulu sebelum membuat pesanan baru.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                        Navigator.pop(context, false);
+                      },
+                      child: const Text('Tutup'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context, true);
+                      },
+                      child: const Text('Lihat Status Pesanan'),
+                    ),
+                  ],
+                );
+              },
+            );
+
+            if (result == true && context.mounted) {
+              context.go('/payment');
+            }
+
+            return;
+          }
+
+          context.go('/checkout');
+        },
       ),
     );
   }
@@ -595,6 +684,118 @@ class EmptyCartWithMenu extends StatelessWidget {
     );
   }
 }
+class EmptyCartWithInvoice extends StatelessWidget {
+  const EmptyCartWithInvoice({
+    super.key,
+    required this.order,
+  });
+
+  final Map<String, dynamic> order;
+
+  @override
+  Widget build(BuildContext context) {
+    print(
+      'ActiveInvoiceCard build -> ${order['order_number']}',
+    );
+    final isTakeAway =
+        order['order_type'] == 'take_away';
+
+    final paymentStatus =
+        order['payment_status'];
+
+    final paymentLabel =
+        paymentStatus == 'paid'
+            ? 'Pembayaran Berhasil'
+            : 'Menunggu Pembayaran';
+
+    final paymentColor =
+        paymentStatus == 'paid'
+            ? Colors.green
+            : Colors.orange;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        24,
+        16,
+        132,
+      ),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pesanan Aktif',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(
+                        fontWeight:
+                            FontWeight.w800,
+                      ),
+                ),
+
+                const SizedBox(height: 16),
+
+                Text(
+                  order['order_number'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 12,
+                      color: paymentColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(paymentLabel),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  isTakeAway
+                      ? 'Take Away'
+                      : 'Meja ${order['table_number']}',
+                ),
+
+                const SizedBox(height: 20),
+
+                FilledButton.icon(
+                  onPressed: () {
+                    context.go('/payment');
+                  },
+                  icon: const Icon(Icons.receipt_long),
+                  label: const Text(
+                    'Lihat Status Pesanan',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        const CartMenuPicker(
+          title: 'Tambah menu ke cart',
+        ),
+      ],
+    );
+  }
+}
 
 // ==================== CART MENU PICKER ====================
 class CartMenuPicker extends ConsumerWidget {
@@ -655,19 +856,23 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
-  late TextEditingController _tableController;
-  String _orderType = 'takeaway'; // TAMBAHKAN INI
+  String _orderType = 'take_away';
+  int? _selectedTable;
 
   @override
   void initState() {
     super.initState();
     final customerInfo = ref.read(customerInfoProvider);
-    _tableController = TextEditingController(text: customerInfo.table);
+    _selectedTable = int.tryParse(customerInfo.table);
+    if (_selectedTable != null) {
+      _orderType = 'dine_in';
+    } else {
+      _orderType = 'take_away';
+    }
   }
 
   @override
   void dispose() {
-    _tableController.dispose();
     super.dispose();
   }
 
@@ -762,15 +967,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: FilledButton(
         onPressed: () {
           setState(() {
-            _orderType = 'takeaway';
-            _tableController.text = '0';
+            _orderType = 'take_away';
+            _selectedTable = null;
           });
         },
         style: FilledButton.styleFrom(
-          backgroundColor: _orderType == 'takeaway' 
+          backgroundColor: _orderType == 'take_away' 
               ? SmartCashierTheme.primary 
               : SmartCashierTheme.surfaceContainer,
-          foregroundColor: _orderType == 'takeaway' 
+          foregroundColor: _orderType == 'take_away' 
               ? Colors.white 
               : SmartCashierTheme.onSurface,
         ),
@@ -789,15 +994,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: FilledButton(
         onPressed: () {
           setState(() {
-            _orderType = 'dinein';
-            _tableController.text = '';
+            _orderType = 'dine_in';
+            _selectedTable ??= 1;
           });
         },
         style: FilledButton.styleFrom(
-          backgroundColor: _orderType == 'dinein' 
+          backgroundColor: _orderType == 'dine_in' 
               ? SmartCashierTheme.primary 
               : SmartCashierTheme.surfaceContainer,
-          foregroundColor: _orderType == 'dinein' 
+          foregroundColor: _orderType == 'dine_in' 
               ? Colors.white 
               : SmartCashierTheme.onSurface,
         ),
@@ -813,19 +1018,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     ),
   ],
 ),
-    if (_orderType == 'dinein') ...[
+    if (_orderType == 'dine_in') ...[
       const SizedBox(height: 12),
-      TextField(
-        key: const Key('checkout_table_field'),
-        controller: _tableController,
-        keyboardType: TextInputType.number,
+      DropdownButtonFormField<int>(
+        value: _selectedTable,
         decoration: const InputDecoration(
           labelText: 'Nomor Meja',
           prefixIcon: Icon(Icons.table_restaurant),
-          hintText: 'Masukkan nomor meja',
           border: OutlineInputBorder(),
         ),
-      ),
+        items: List.generate(
+          20,
+          (index) => DropdownMenuItem(
+            value: index + 1,
+            child: Text('Meja ${index + 1}'),
+          ),
+        ),
+        onChanged: (value) {
+          setState(() {
+            _selectedTable = value;
+          });
+        },
+      )
     ],
   ],
 ),
@@ -901,13 +1115,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         total: cart.total,
         label: 'Bayar dengan QRIS',
         enabled: cart.itemCount > 0,
-        onPressed: () {
+        onPressed: () async {
           // Save table info, name auto from profile
-          final table = _tableController.text;
+          final table = _selectedTable?.toString() ?? '';
           ref.read(customerInfoProvider.notifier).update(
             name: customerName, // Auto dari profil user yang login
             table: table,
           );
+          final createdOrder = await ref.read(orderProvider.notifier).addOrder(
+            customer: customerName,
+            orderType: _orderType,
+            tableNumber: _selectedTable,
+            cart: cart,
+          );
+
+          ref.read(currentOrderProvider.notifier).setOrder(createdOrder);
 
           // Go to QR payment screen
           context.go('/payment');
@@ -923,12 +1145,45 @@ class QrPaymentScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(cartProvider);
-    final customerInfo = ref.watch(customerInfoProvider);
+    final currentOrder = ref.watch(currentOrderProvider);
+    print(
+      'QrPaymentScreen rebuild: ${currentOrder?['order_number']}',
+    );
+    if (currentOrder == null) {
+      return const Scaffold(
+        body: Center(
+          child: Text('Order tidak ditemukan'),
+        ),
+      );
+    }
+    final paymentStatus =
+        currentOrder['payment_status'];
+
+    final paymentLabel =
+        paymentStatus == 'paid'
+            ? 'Pembayaran Berhasil'
+            : 'Menunggu Pembayaran';
+
+    final paymentIcon =
+        paymentStatus == 'paid'
+            ? Icons.check_circle
+            : Icons.schedule;
+
+    final paymentColor =
+        paymentStatus == 'paid'
+            ? Colors.green
+            : Colors.orange;
+    final isTakeAway = currentOrder['order_type'] == 'take_away';
+    final orderTypeLabel =
+        isTakeAway ? 'Take Away' : 'Dine In';
+    final orderTypeIcon =
+        isTakeAway
+            ? Icons.takeout_dining
+            : Icons.table_restaurant;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('QR Payment'),
+        title: const Text('Status Pesanan'),
         leading: IconButton(
           onPressed: () => context.go('/checkout'),
           icon: const Icon(Icons.arrow_back),
@@ -937,6 +1192,44 @@ class QrPaymentScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pesanan',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text(
+                    '#${currentOrder['order_number']}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Icon(
+                        paymentIcon,
+                        color: paymentColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(paymentLabel),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
           // Customer info card
           Card(
             child: Padding(
@@ -947,9 +1240,9 @@ class QrPaymentScreen extends ConsumerWidget {
                     backgroundColor: SmartCashierTheme.primary,
                     foregroundColor: Colors.white,
                     child: Text(
-                      customerInfo.name.isNotEmpty 
-                        ? customerInfo.name[0].toUpperCase() 
-                        : 'C',
+                      (currentOrder['customer_name'] as String)
+                          .substring(0, 1)
+                          .toUpperCase(),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
@@ -958,17 +1251,45 @@ class QrPaymentScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Pesanan atas nama ${customerInfo.name}',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        const Text(
+                          'Pesanan atas nama',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        if (customerInfo.table.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            'Meja ${customerInfo.table}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: SmartCashierTheme.onSurfaceVariant,
-                            ),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          currentOrder['customer_name'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Icon(orderTypeIcon, size: 18),
+                            const SizedBox(width: 8),
+                            Text(orderTypeLabel),
+                          ],
+                        ),
+
+                        if (!isTakeAway) ...[
+                          const SizedBox(height: 8),
+
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.pin_drop,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text('Meja ${currentOrder['table_number']}'),
+                            ],
                           ),
                         ],
                       ],
@@ -1016,13 +1337,24 @@ class QrPaymentScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  cart.total.rupiah,
+                  (currentOrder['total_amount'] as num).toInt().rupiah,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text('Scan kode QR untuk menyelesaikan pembayaran'),
+                Text(
+                  'Total yang harus dibayar',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: SmartCashierTheme.onSurfaceVariant,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+                const Text(
+                  'Silakan scan QRIS merchant yang tersedia di meja.',
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
@@ -1031,30 +1363,10 @@ class QrPaymentScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () {
-              // Create order with customer name from profile
-              final name = customerInfo.name.isNotEmpty 
-                ? customerInfo.name 
-                : 'Customer';
-              final table = customerInfo.table;
-              
-              ref.read(orderProvider.notifier).addOrder(
-                customer: name,
-                note: table == '0' || table.isEmpty ? 'Take away' : 'Meja $table',
-                cart: cart,
-              );
-
-              ref.read(cartProvider.notifier).clear();
-              ref.read(customerInfoProvider.notifier).clear();
-              context.go('/user-home');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Pesanan atas nama $name berhasil dibuat!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+              context.push('/qr-scanner');
             },
-            icon: const Icon(Icons.check_circle_outline),
-            label: const Text('Konfirmasi Pembayaran'),
+            icon: const Icon(Icons.qr_code_scanner),
+            label: const Text('Scan QR Merchant'),
           ),
         ],
       ),

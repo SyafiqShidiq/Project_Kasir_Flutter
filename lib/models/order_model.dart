@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 enum OrderStatus {
+  waitingPayment,
   paid,
   preparing,
   ready,
@@ -86,7 +87,9 @@ class CashierOrder {
     String? status,
   ) {
     switch (status?.toLowerCase()) {
-      case 'pending':
+      case 'waiting_payment':
+        return OrderStatus.waitingPayment;
+      case 'paid':
         return OrderStatus.paid;
 
       case 'preparing':
@@ -120,7 +123,9 @@ class CashierOrder {
     String? status,
   ) {
     switch (status) {
-      case 'pending':
+      case 'waiting_payment':
+        return const Color(0xFFFFD5E5);
+      case 'paid':
         return const Color(0xFFFFD5E5);
 
       case 'preparing':
