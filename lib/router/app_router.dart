@@ -8,6 +8,7 @@ import '../screens/register_screen.dart';
 import '../screens/report_screen.dart';
 import '../screens/merchant_qr_screen.dart';
 import '../screens/qr_scanner_screen.dart';
+import '../screens/midtrans_payment_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -70,6 +71,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/qr-scanner',
         builder: (context, state) =>
             const QrScannerScreen(),
+      ),
+      GoRoute(
+        path: '/midtrans-payment',
+        builder: (context, state) {
+          final result = state.extra as Map<String, dynamic>;
+
+          return MidtransPaymentScreen(
+            result: result,
+          );
+        },
       ),
     ],
   );

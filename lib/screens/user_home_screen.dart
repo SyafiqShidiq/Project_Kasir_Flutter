@@ -1301,119 +1301,34 @@ class QrPaymentScreen extends ConsumerWidget {
               ),
             ),
           ),
+      
           const SizedBox(height: 12),
           SectionCard(
-            title: 'Scan untuk Bayar',
+            title: 'Status Pembayaran',
             child: Column(
               children: [
-                Container(
-                  width: 228,
-                  height: 228,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: SmartCashierTheme.surfaceVariant),
-                  ),
-                  child: Image.asset(
-                    'assets/images/qris_saya.jpeg',
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.qr_code,
-                            size: 80,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'QRIS tidak ditemukan',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+                const SizedBox(height: 12),
+
+                const CircularProgressIndicator(),
+
                 const SizedBox(height: 20),
+
                 Text(
-                  (currentOrder['total_amount'] as num).toInt().rupiah,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Total yang harus dibayar',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: SmartCashierTheme.onSurfaceVariant,
+                  'Menunggu QR Pembayaran',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
 
-                const SizedBox(height: 12),
-                const Text(
-                  'Silakan scan QRIS merchant yang tersedia di meja.',
+                const SizedBox(height: 8),
+
+                Text(
+                  'Kasir akan menampilkan QRIS untuk pesanan Anda.',
                   textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () async {
-              final payload = await context.push<QrPayload>(
-                '/qr-scanner',
-              );
-
-              if (!context.mounted || payload == null) {
-                return;
-              }
-
-              if (payload.type != 'merchant') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('QR bukan Merchant.'),
-                  ),
-                );
-                return;
-              }
-
-              final merchantService = ref.read(
-                merchantServiceProvider,
-              );
-
-              final merchant = await merchantService
-                  .getMerchantByCode(payload.value);
-
-              if (!context.mounted) {
-                return;
-              }
-
-              if (merchant == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Merchant tidak ditemukan atau sudah tidak aktif.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Merchant "${merchant.merchantName}" berhasil divalidasi.',
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.qr_code_scanner),
-            label: const Text('Scan QR Merchant'),
           ),
         ],
       ),

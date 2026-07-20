@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/payment_service.dart';
+
 enum PaymentMethod {
   qris,
   cash,
@@ -18,3 +20,7 @@ final paymentMethodProvider =
     NotifierProvider<PaymentMethodController, PaymentMethod>(
   PaymentMethodController.new,
 );
+
+final paymentServiceProvider = Provider<PaymentService>((ref) {
+  return PaymentService();
+});

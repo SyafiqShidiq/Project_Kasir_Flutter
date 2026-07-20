@@ -56,6 +56,21 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
 
     await refresh();
   }
+  Future<void> savePaymentData({
+    required String orderId,
+    required String paymentUrl,
+    required String qrUrl,
+    required String midtransOrderId,
+  }) async {
+    await _service.savePaymentData(
+      orderId: orderId,
+      paymentUrl: paymentUrl,
+      qrUrl: qrUrl,
+      midtransOrderId: midtransOrderId,
+    );
+
+    await refresh();
+  }
   Future<List<Map<String, dynamic>>> getActiveOrders() async {
     return await _service.getActiveOrders();
   }

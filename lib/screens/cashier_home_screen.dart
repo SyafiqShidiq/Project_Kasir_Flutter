@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/menu_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/menu_filter_provider.dart';
+import '../providers/payment_provider.dart';
 import '../theme/smart_cashier_theme.dart';
 import 'shared_widgets.dart';
 
@@ -188,7 +189,11 @@ class CashierNavigationBar extends ConsumerWidget {
             }
             break;
           case 3:
-            context.go('/merchant-qr');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Fitur QRIS akan segera tersedia'),
+              ),
+            );
             break;
           case 4:
             context.go('/report');
@@ -1085,15 +1090,65 @@ class OrderDetailScreen extends ConsumerWidget {
               onPressed: isFinished ? null : () async {
                 switch (order.status) {
                   case order_model.OrderStatus.waitingPayment:
-                    if (!context.mounted) return;
+                    // Jika QR sudah pernah dibuat,
+                    // langsung tampilkan tanpa membuat Payment Link baru.
+                    if (order.qrUrl != null && order.qrUrl!.isNotEmpty) {
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Customer belum menyelesaikan pembayaran.',
+  final paymentService = ref.read(paymentServiceProvider);
+
+  final result = await paymentService.checkPayment(
+    order.midtransOrderId!,
+  );
+
+  debugPrint(result.toString());
+
+  if (!context.mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(result.toString()),
+    ),
+  );
+
+  break;
+}
+
+                    try {
+                      final paymentService = ref.read(paymentServiceProvider);
+
+                      final result = await paymentService.createQris(
+                        orderId: order.id,
+                        grossAmount: order.total,
+                      );
+
+                      final response = result['response'];
+                      debugPrint(response.toString());
+
+                      await ref.read(orderProvider.notifier).savePaymentData(
+                        orderId: order.id,
+                        paymentUrl: response['payment_url'],
+                        qrUrl: response['qr_url'],
+                        midtransOrderId: response['order_id'],
+                      );
+
+                      if (!context.mounted) return;
+
+                      context.push(
+                        '/midtrans-payment',
+                        extra: response,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
                         ),
-                      ),
-                    );
+                      );
+
+                      debugPrint('Payment Error: $e');
+                    }
+
                     break;
                   case order_model.OrderStatus.paid:
                     await ref
@@ -1148,7 +1203,7 @@ class OrderDetailScreen extends ConsumerWidget {
               },
               icon: Icon(
                 switch (order.status) {
-                  order_model.OrderStatus.waitingPayment => Icons.restaurant,
+                  order_model.OrderStatus.waitingPayment => Icons.qr_code_2,
                   order_model.OrderStatus.paid => Icons.restaurant,
                   order_model.OrderStatus.preparing => Icons.done_all,
                   order_model.OrderStatus.ready => Icons.shopping_bag,
@@ -1157,7 +1212,7 @@ class OrderDetailScreen extends ConsumerWidget {
               ),
               label: Text(
                 switch (order.status) {
-                  order_model.OrderStatus.waitingPayment => 'Menunggu Pembayaran',
+                  order_model.OrderStatus.waitingPayment => 'Tampilkan QRIS',
                   order_model.OrderStatus.paid => 'Mulai proses',
                   order_model.OrderStatus.preparing => 'Tandai siap',
                   order_model.OrderStatus.ready => 'Serahkan Pesanan',

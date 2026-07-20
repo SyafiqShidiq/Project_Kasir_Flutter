@@ -78,6 +78,24 @@ class OrderService {
           orderId,
         );
   }
+  Future<void> savePaymentData({
+    required String orderId,
+    required String paymentUrl,
+    required String qrUrl,
+    required String midtransOrderId,
+  }) async {
+    await _supabase
+        .from('orders')
+        .update({
+          'payment_url': paymentUrl,
+          'qr_url': qrUrl,
+          'midtrans_order_id': midtransOrderId,
+        })
+        .eq(
+          'id',
+          orderId,
+        );
+  }
 
   Future<Map<String, dynamic>> addOrder({
     required String customer,

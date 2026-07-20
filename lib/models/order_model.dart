@@ -31,6 +31,9 @@ class CashierOrder {
     required this.items,
     required this.note,
     required this.createdAt,
+    this.paymentUrl,
+    this.qrUrl,
+    this.midtransOrderId,
   });
   factory CashierOrder.fromOrderJson({
     required Map<String, dynamic> orderJson,
@@ -54,6 +57,9 @@ class CashierOrder {
           ? 'Take Away'
           : 'Meja $table',
       createdAt: DateTime.parse(orderJson['created_at']).toLocal(),
+      paymentUrl: orderJson['payment_url'],
+      qrUrl: orderJson['qr_url'],
+      midtransOrderId: orderJson['midtrans_order_id'],
     );
   }
 
@@ -66,9 +72,15 @@ class CashierOrder {
   final List<OrderItem> items;
   final String note;
   final DateTime createdAt;
+  final String? paymentUrl;
+  final String? qrUrl;
+  final String? midtransOrderId;
 
   CashierOrder copyWith({
     OrderStatus? status,
+    String? paymentUrl,
+    String? qrUrl,
+    String? midtransOrderId,
   }) {
     return CashierOrder(
       id: id,
@@ -80,6 +92,9 @@ class CashierOrder {
       items: items,
       note: note,
       createdAt: createdAt,
+      paymentUrl: paymentUrl ?? this.paymentUrl,
+      qrUrl: qrUrl ?? this.qrUrl,
+      midtransOrderId: midtransOrderId ?? this.midtransOrderId,
     );
   }
 
@@ -117,6 +132,9 @@ class CashierOrder {
       items: [],
       note: '',
       createdAt: DateTime.now(),
+      paymentUrl: null,
+      qrUrl: null,
+      midtransOrderId: null,
     );
   }
   static Color _statusColor(
