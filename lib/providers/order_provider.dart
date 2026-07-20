@@ -4,6 +4,7 @@ import '../models/order_model.dart';
 import '../services/order_service.dart';
 import '../models/cart_model.dart';
 import 'current_order_provider.dart';
+import 'payment_provider.dart';
 
 final orderServiceProvider =
     Provider<OrderService>(
@@ -134,6 +135,42 @@ class OrderController extends AsyncNotifier<List<CashierOrder>> {
     await refresh();
     return order;
   }
+
+  Future<Map<String, dynamic>> checkoutWithPayment({
+    required String customer,
+    required String orderType,
+    int? tableNumber,
+    required CartState cart,
+  }) async {
+    final createdOrder = await addOrder(
+      customer: customer,
+      orderType: orderType,
+      tableNumber: tableNumber,
+      cart: cart,
+    );
+
+    ref.read(currentOrderProvider.notifier).setOrder(createdOrder);
+
+    final paymentService = ref.read(paymentServiceProvider);
+    final paymentResult = await paymentService.createQris(
+      orderId: createdOrder['id'].toString(),
+      grossAmount: cart.total,
+    );
+
+    final mergedOrder = {
+      ...createdOrder,
+      'payment_url': paymentResult['payment_url'],
+      'qr_url': paymentResult['qr_url'],
+      'midtrans_order_id':
+          paymentResult['midtrans_order_id'] ??
+          paymentResult['order_id'],
+    };
+
+    ref.read(currentOrderProvider.notifier).setOrder(mergedOrder);
+    await refresh();
+    return mergedOrder;
+  }
+
   Future<void> markOrderReady(
     String orderId,
   ) async {

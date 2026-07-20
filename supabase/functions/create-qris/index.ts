@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
       .from("orders")
       .update({
         midtrans_order_id: responseJson.order_id,
+        payment_url: responseJson.payment_url,
+        qr_url: responseJson.qr_url,
       })
       .eq(
         "id",
@@ -117,6 +119,9 @@ Deno.serve(async (req) => {
         success: true,
 
         order_id:
+          responseJson.order_id,
+
+        midtrans_order_id:
           responseJson.order_id,
 
         payment_url:

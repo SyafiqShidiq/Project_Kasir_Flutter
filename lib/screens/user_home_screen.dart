@@ -1124,17 +1124,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             name: customerName, // Auto dari profil user yang login
             table: table,
           );
-          final createdOrder = await ref.read(orderProvider.notifier).addOrder(
-            customer: customerName,
-            orderType: _orderType,
-            tableNumber: _selectedTable,
-            cart: cart,
-          );
+          try {
+            await ref.read(orderProvider.notifier).checkoutWithPayment(
+              customer: customerName,
+              orderType: _orderType,
+              tableNumber: _selectedTable,
+              cart: cart,
+            );
 
-          ref.read(currentOrderProvider.notifier).setOrder(createdOrder);
+            if (!context.mounted) return;
 
-          // Go to QR payment screen
-          context.go('/payment');
+            context.go('/payment');
+          } catch (e) {
+            if (!context.mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal membuat pembayaran: $e'),
+              ),
+            );
+          }
         },
       ),
     );
@@ -1148,16 +1157,19 @@ class QrPaymentScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentOrder = ref.watch(currentOrderProvider);
-    print(
-      'QrPaymentScreen rebuild: ${currentOrder?['order_number']}',
-    );
+
     if (currentOrder == null) {
       return const Scaffold(
         body: Center(
-          child: Text('Order tidak ditemukan'),
+          child: Text('Order belum tersedia'),
         ),
       );
     }
+
+    final paymentUrl = currentOrder['payment_url']?.toString() ?? '';
+    final qrUrl = currentOrder['qr_url']?.toString() ?? '';
+    final midtransOrderId =
+        currentOrder['midtrans_order_id']?.toString() ?? '-';
     final paymentStatus =
         currentOrder['payment_status'];
 
@@ -1185,7 +1197,7 @@ class QrPaymentScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Status Pesanan'),
+        title: const Text('Pembayaran QRIS'),
         leading: IconButton(
           onPressed: () => context.go('/checkout'),
           icon: const Icon(Icons.arrow_back),
@@ -1201,23 +1213,12 @@ class QrPaymentScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Pesanan',
+                    'Order ${currentOrder['order_number']}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  Text(
-                    '#${currentOrder['order_number']}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
                   Row(
                     children: [
                       Icon(
@@ -1227,6 +1228,11 @@ class QrPaymentScreen extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(paymentLabel),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Midtrans order id: $midtransOrderId',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -1304,29 +1310,54 @@ class QrPaymentScreen extends ConsumerWidget {
       
           const SizedBox(height: 12),
           SectionCard(
-            title: 'Status Pembayaran',
+            title: 'QR Pembayaran',
             child: Column(
               children: [
                 const SizedBox(height: 12),
-
-                const CircularProgressIndicator(),
-
-                const SizedBox(height: 20),
-
-                Text(
-                  'Menunggu QR Pembayaran',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                if (qrUrl.isEmpty)
+                  Column(
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 20),
+                      Text(
+                        'QR masih disiapkan',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tunggu sebentar sampai data pembayaran selesai dibuat.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    children: [
+                      Image.network(
+                        qrUrl,
+                        width: 260,
+                        height: 260,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) {
+                          return const Text('QR gagal dimuat');
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      SelectableText(
+                        paymentUrl,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Tunjukkan QR ini untuk pembayaran.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                   ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  'Kasir akan menampilkan QRIS untuk pesanan Anda.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
               ],
             ),
           ),

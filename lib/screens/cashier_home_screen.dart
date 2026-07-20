@@ -1090,52 +1090,37 @@ class OrderDetailScreen extends ConsumerWidget {
               onPressed: isFinished ? null : () async {
                 switch (order.status) {
                   case order_model.OrderStatus.waitingPayment:
-                    // Jika QR sudah pernah dibuat,
-                    // langsung tampilkan tanpa membuat Payment Link baru.
-                    if (order.qrUrl != null && order.qrUrl!.isNotEmpty) {
+                    if (order.qrUrl == null ||
+                        order.qrUrl!.isEmpty ||
+                        order.midtransOrderId == null ||
+                        order.midtransOrderId!.isEmpty) {
+                      if (!context.mounted) return;
 
-  final paymentService = ref.read(paymentServiceProvider);
-
-  final result = await paymentService.checkPayment(
-    order.midtransOrderId!,
-  );
-
-  debugPrint(result.toString());
-
-  if (!context.mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(result.toString()),
-    ),
-  );
-
-  break;
-}
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'QR pembayaran belum dibuat oleh customer.',
+                          ),
+                        ),
+                      );
+                      break;
+                    }
 
                     try {
                       final paymentService = ref.read(paymentServiceProvider);
 
-                      final result = await paymentService.createQris(
-                        orderId: order.id,
-                        grossAmount: order.total,
+                      final result = await paymentService.checkPayment(
+                        order.id,
                       );
 
-                      final response = result['response'];
-                      debugPrint(response.toString());
-
-                      await ref.read(orderProvider.notifier).savePaymentData(
-                        orderId: order.id,
-                        paymentUrl: response['payment_url'],
-                        qrUrl: response['qr_url'],
-                        midtransOrderId: response['order_id'],
-                      );
+                      await ref.read(orderProvider.notifier).refresh();
 
                       if (!context.mounted) return;
 
-                      context.push(
-                        '/midtrans-payment',
-                        extra: response,
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result.toString()),
+                        ),
                       );
                     } catch (e) {
                       if (!context.mounted) return;
